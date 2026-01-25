@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "duckguard"
-version = "2.2.0"
+version = "2.2.1"
 description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
 readme = "README.md"
 license = "Elastic-2.0"

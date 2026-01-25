@@ -9,6 +9,7 @@ from duckguard.core.engine import DuckGuardEngine
 
 if TYPE_CHECKING:
     from datetime import timedelta
+
     from duckguard.core.scoring import QualityScore
     from duckguard.freshness import FreshnessResult
 
@@ -230,7 +231,7 @@ class Dataset:
         return iter(self.columns)
 
     @property
-    def freshness(self) -> "FreshnessResult":
+    def freshness(self) -> FreshnessResult:
         """
         Get freshness information for this dataset.
 
@@ -251,7 +252,7 @@ class Dataset:
         monitor = FreshnessMonitor()
         return monitor.check(self)
 
-    def is_fresh(self, max_age: "timedelta") -> bool:
+    def is_fresh(self, max_age: timedelta) -> bool:
         """
         Check if data is fresher than the specified maximum age.
 

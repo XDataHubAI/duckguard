@@ -111,7 +111,7 @@ class FreshnessMonitor:
 
     def check(
         self,
-        source: str | "Dataset",
+        source: str | Dataset,
         column: str | None = None,
     ) -> FreshnessResult:
         """Check freshness using the most appropriate method.
@@ -218,7 +218,7 @@ class FreshnessMonitor:
 
     def check_column_timestamp(
         self,
-        dataset: "Dataset",
+        dataset: Dataset,
         column: str,
         use_max: bool = True,
     ) -> FreshnessResult:
@@ -357,7 +357,7 @@ class FreshnessMonitor:
         path = Path(source)
         return path.exists() and path.is_file()
 
-    def _detect_timestamp_column(self, dataset: "Dataset") -> str | None:
+    def _detect_timestamp_column(self, dataset: Dataset) -> str | None:
         """Try to auto-detect a timestamp column."""
         timestamp_patterns = [
             "updated_at", "modified_at", "last_modified", "modified",

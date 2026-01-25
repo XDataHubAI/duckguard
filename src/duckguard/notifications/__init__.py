@@ -32,6 +32,10 @@ Usage:
         email.send_failure_alert(result)
 """
 
+from duckguard.notifications.email import (
+    EmailConfig,
+    EmailNotifier,
+)
 from duckguard.notifications.formatter import (
     format_results_markdown,
     format_results_text,
@@ -42,10 +46,6 @@ from duckguard.notifications.notifiers import (
     NotificationError,
     SlackNotifier,
     TeamsNotifier,
-)
-from duckguard.notifications.email import (
-    EmailNotifier,
-    EmailConfig,
 )
 
 __all__ = [

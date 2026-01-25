@@ -10,8 +10,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from duckguard.anomaly.baselines import BaselineStorage
 from duckguard.anomaly.methods import AnomalyMethod, AnomalyScore
-from duckguard.anomaly.baselines import BaselineStorage, ColumnBaseline
 from duckguard.history.storage import HistoryStorage
 
 

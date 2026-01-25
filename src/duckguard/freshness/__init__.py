@@ -21,9 +21,9 @@ Usage:
 """
 
 from duckguard.freshness.monitor import (
+    FreshnessMethod,
     FreshnessMonitor,
     FreshnessResult,
-    FreshnessMethod,
 )
 
 __all__ = [

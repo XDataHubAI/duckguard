@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from duckguard.history.schema import QUERIES
 from duckguard.history.storage import HistoryStorage
-from duckguard.schema_history.tracker import SchemaSnapshot, SchemaTracker, ColumnSchema
+from duckguard.schema_history.tracker import SchemaSnapshot, SchemaTracker
 
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset

@@ -17,15 +17,15 @@ Usage:
         print("Breaking changes detected!")
 """
 
+from duckguard.schema_history.analyzer import (
+    SchemaChange,
+    SchemaChangeAnalyzer,
+    SchemaEvolutionReport,
+)
 from duckguard.schema_history.tracker import (
     ColumnSchema,
     SchemaSnapshot,
     SchemaTracker,
-)
-from duckguard.schema_history.analyzer import (
-    SchemaChange,
-    SchemaEvolutionReport,
-    SchemaChangeAnalyzer,
 )
 
 __all__ = [

@@ -401,7 +401,7 @@ def anomaly(
                         learned += 1
 
                 console.print(f"[green]LEARNED[/green] Baselines stored for {learned} columns")
-                console.print(f"[dim]Use --method baseline to compare against stored baselines[/dim]")
+                console.print("[dim]Use --method baseline to compare against stored baselines[/dim]")
                 return
 
             # Regular anomaly detection
@@ -1097,7 +1097,7 @@ def schema(
     import json as json_module
 
     from duckguard.connectors import connect
-    from duckguard.schema_history import SchemaTracker, SchemaChangeAnalyzer
+    from duckguard.schema_history import SchemaChangeAnalyzer, SchemaTracker
 
     console.print(f"\n[bold blue]DuckGuard[/bold blue] Schema: [cyan]{source}[/cyan]\n")
 

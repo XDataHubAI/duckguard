@@ -9,6 +9,11 @@ Example:
     anomalies = detector.detect(dataset, column="amount")
 """
 
+from duckguard.anomaly.baselines import (
+    BaselineStorage,
+    ColumnBaseline,
+    StoredBaseline,
+)
 from duckguard.anomaly.detector import (
     AnomalyDetector,
     AnomalyResult,
@@ -18,22 +23,17 @@ from duckguard.anomaly.detector import (
 )
 from duckguard.anomaly.methods import (
     IQRMethod,
+    ModifiedZScoreMethod,
     PercentChangeMethod,
     ZScoreMethod,
-    ModifiedZScoreMethod,
     create_method,
 )
 from duckguard.anomaly.ml_methods import (
+    BaselineComparison,
     BaselineMethod,
+    DistributionComparison,
     KSTestMethod,
     SeasonalMethod,
-    BaselineComparison,
-    DistributionComparison,
-)
-from duckguard.anomaly.baselines import (
-    BaselineStorage,
-    StoredBaseline,
-    ColumnBaseline,
 )
 
 __all__ = [
