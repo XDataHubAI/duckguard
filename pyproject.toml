@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "duckguard"
-version = "2.1.0"
+version = "2.2.0"
 description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
 readme = "README.md"
 license = "Elastic-2.0"
@@ -58,6 +58,15 @@ kafka = ["kafka-python>=2.0.0"]
 # AI/LLM features
 llm = ["openai>=1.0.0", "anthropic>=0.18.0"]
 
+# Report generation (HTML/PDF)
+reports = [
+    "jinja2>=3.0.0",
+    "weasyprint>=60.0",
+]
+
+# Apache Airflow integration
+airflow = ["apache-airflow>=2.5.0"]
+
 # All database connectors
 databases = [
     "duckguard[postgres,mysql,snowflake,bigquery,redshift,sqlserver,databricks,oracle,mongodb,kafka]"
@@ -73,7 +82,7 @@ dev = [
 ]
 
 # Everything
-all = ["duckguard[databases,llm]"]
+all = ["duckguard[databases,llm,reports,airflow]"]
 
 [project.scripts]
 duckguard = "duckguard.cli.main:app"

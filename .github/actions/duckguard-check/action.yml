@@ -1,0 +1,247 @@
+name: 'DuckGuard Data Quality Check'
+description: 'Run DuckGuard data quality checks in your CI/CD pipeline'
+author: 'DuckGuard Team'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  source:
+    description: 'Data source path (CSV, Parquet, JSON, or connection string)'
+    required: true
+  rules:
+    description: 'Path to duckguard.yaml rules file (optional - auto-generates if not provided)'
+    required: false
+    default: ''
+  table:
+    description: 'Table name (required for database connections)'
+    required: false
+    default: ''
+  fail-on-warning:
+    description: 'Fail the action if there are any warnings'
+    required: false
+    default: 'false'
+  fail-on-error:
+    description: 'Fail the action if there are any errors'
+    required: false
+    default: 'true'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  extra-deps:
+    description: 'Extra DuckGuard dependencies to install (e.g., "postgres,snowflake")'
+    required: false
+    default: ''
+  generate-report:
+    description: 'Generate HTML report artifact'
+    required: false
+    default: 'false'
+
+outputs:
+  passed:
+    description: 'Whether all checks passed (true/false)'
+    value: ${{ steps.run-checks.outputs.passed }}
+  quality-score:
+    description: 'Overall quality score (0-100)'
+    value: ${{ steps.run-checks.outputs.quality_score }}
+  grade:
+    description: 'Quality grade (A-F)'
+    value: ${{ steps.run-checks.outputs.grade }}
+  checks-total:
+    description: 'Total number of checks run'
+    value: ${{ steps.run-checks.outputs.checks_total }}
+  checks-passed:
+    description: 'Number of checks that passed'
+    value: ${{ steps.run-checks.outputs.checks_passed }}
+  checks-failed:
+    description: 'Number of checks that failed'
+    value: ${{ steps.run-checks.outputs.checks_failed }}
+  checks-warned:
+    description: 'Number of checks with warnings'
+    value: ${{ steps.run-checks.outputs.checks_warned }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install DuckGuard
+      shell: bash
+      run: |
+        pip install --quiet duckguard
+        if [ -n "${{ inputs.extra-deps }}" ]; then
+          pip install --quiet "duckguard[${{ inputs.extra-deps }}]"
+        fi
+
+    - name: Run DuckGuard Checks
+      id: run-checks
+      shell: bash
+      env:
+        DUCKGUARD_SOURCE: ${{ inputs.source }}
+        DUCKGUARD_RULES: ${{ inputs.rules }}
+        DUCKGUARD_TABLE: ${{ inputs.table }}
+        DUCKGUARD_FAIL_ON_WARNING: ${{ inputs.fail-on-warning }}
+        DUCKGUARD_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        DUCKGUARD_GENERATE_REPORT: ${{ inputs.generate-report }}
+      run: |
+        python3 << 'PYTHON_SCRIPT'
+        import os
+        import sys
+        import json
+
+        # Import DuckGuard
+        from duckguard import connect
+        from duckguard.rules import execute_rules, generate_rules, load_rules
+
+        # Get configuration from environment
+        source = os.environ['DUCKGUARD_SOURCE']
+        rules_path = os.environ.get('DUCKGUARD_RULES', '').strip()
+        table = os.environ.get('DUCKGUARD_TABLE', '').strip() or None
+        fail_on_warning = os.environ.get('DUCKGUARD_FAIL_ON_WARNING', 'false').lower() == 'true'
+        fail_on_error = os.environ.get('DUCKGUARD_FAIL_ON_ERROR', 'true').lower() == 'true'
+        generate_report = os.environ.get('DUCKGUARD_GENERATE_REPORT', 'false').lower() == 'true'
+
+        print(f"🦆 DuckGuard Data Quality Check")
+        print(f"   Source: {source}")
+        if rules_path:
+            print(f"   Rules: {rules_path}")
+        print()
+
+        try:
+            # Connect to data source
+            dataset = connect(source, table=table)
+            print(f"📊 Connected: {dataset.row_count:,} rows, {dataset.column_count} columns")
+            print()
+
+            # Load or generate rules
+            if rules_path and os.path.exists(rules_path):
+                ruleset = load_rules(rules_path)
+                print(f"📋 Loaded {ruleset.total_checks} checks from rules file")
+            else:
+                ruleset = generate_rules(dataset, as_yaml=False)
+                print(f"📋 Auto-generated {ruleset.total_checks} checks from data profile")
+            print()
+
+            # Execute validation
+            result = execute_rules(ruleset, dataset=dataset)
+
+            # Calculate grade
+            score = result.quality_score
+            if score >= 90:
+                grade = 'A'
+            elif score >= 80:
+                grade = 'B'
+            elif score >= 70:
+                grade = 'C'
+            elif score >= 60:
+                grade = 'D'
+            else:
+                grade = 'F'
+
+            # Determine pass/fail status
+            passed = True
+            if fail_on_error and result.failed_count > 0:
+                passed = False
+            if fail_on_warning and result.warning_count > 0:
+                passed = False
+
+            # Write outputs
+            github_output = os.environ.get('GITHUB_OUTPUT', '')
+            if github_output:
+                with open(github_output, 'a') as f:
+                    f.write(f"passed={str(passed).lower()}\n")
+                    f.write(f"quality_score={score:.1f}\n")
+                    f.write(f"grade={grade}\n")
+                    f.write(f"checks_total={result.total_checks}\n")
+                    f.write(f"checks_passed={result.passed_count}\n")
+                    f.write(f"checks_failed={result.failed_count}\n")
+                    f.write(f"checks_warned={result.warning_count}\n")
+
+            # Write job summary
+            github_summary = os.environ.get('GITHUB_STEP_SUMMARY', '')
+            if github_summary:
+                status_emoji = '✅' if passed else '❌'
+                status_text = 'PASSED' if passed else 'FAILED'
+
+                with open(github_summary, 'a') as f:
+                    f.write(f"## 🦆 DuckGuard Data Quality Report\n\n")
+                    f.write(f"**Status:** {status_emoji} {status_text}\n\n")
+                    f.write(f"| Metric | Value |\n")
+                    f.write(f"|--------|-------|\n")
+                    f.write(f"| Source | `{source}` |\n")
+                    f.write(f"| Rows | {dataset.row_count:,} |\n")
+                    f.write(f"| Quality Score | **{score:.1f}%** (Grade: {grade}) |\n")
+                    f.write(f"| Checks Passed | {result.passed_count}/{result.total_checks} |\n")
+                    f.write(f"| Failures | {result.failed_count} |\n")
+                    f.write(f"| Warnings | {result.warning_count} |\n\n")
+
+                    # Add failure details
+                    failures = result.get_failures()
+                    if failures:
+                        f.write("### ❌ Failures\n\n")
+                        for fail in failures[:10]:
+                            col = f"`{fail.column}`" if fail.column else "_table_"
+                            f.write(f"- {col}: {fail.message}\n")
+                        if len(failures) > 10:
+                            f.write(f"\n_...and {len(failures) - 10} more failures_\n")
+                        f.write("\n")
+
+                    # Add warning details
+                    warnings = result.get_warnings()
+                    if warnings:
+                        f.write("### ⚠️ Warnings\n\n")
+                        for warn in warnings[:5]:
+                            col = f"`{warn.column}`" if warn.column else "_table_"
+                            f.write(f"- {col}: {warn.message}\n")
+                        if len(warnings) > 5:
+                            f.write(f"\n_...and {len(warnings) - 5} more warnings_\n")
+                        f.write("\n")
+
+                    f.write("---\n")
+                    f.write("_Generated by [DuckGuard](https://github.com/XDataHubAI/duckguard)_\n")
+
+            # Generate HTML report if requested
+            if generate_report:
+                try:
+                    from duckguard.reports import generate_html_report
+                    report_path = 'duckguard-report.html'
+                    generate_html_report(result, report_path, title=f"DuckGuard Report: {source}")
+                    print(f"📄 Generated report: {report_path}")
+                except ImportError:
+                    print("⚠️ Report generation requires jinja2. Install with: pip install jinja2")
+
+            # Print summary to console
+            print(f"{'✅' if passed else '❌'} Quality Score: {score:.1f}% (Grade: {grade})")
+            print(f"   Checks: {result.passed_count}/{result.total_checks} passed")
+            if result.failed_count > 0:
+                print(f"   ❌ Failures: {result.failed_count}")
+            if result.warning_count > 0:
+                print(f"   ⚠️ Warnings: {result.warning_count}")
+
+            # Exit with error if checks failed
+            if not passed:
+                print()
+                print("::error::DuckGuard data quality checks failed. See job summary for details.")
+                sys.exit(1)
+
+        except FileNotFoundError as e:
+            print(f"::error::File not found: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"::error::DuckGuard error: {e}")
+            sys.exit(1)
+
+        PYTHON_SCRIPT
+
+    - name: Upload Report Artifact
+      if: inputs.generate-report == 'true' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: duckguard-report
+        path: duckguard-report.html
+        if-no-files-found: ignore

@@ -223,7 +223,7 @@ def discover(
         if output:
             yaml_content = ruleset_to_yaml(ruleset)
             Path(output).write_text(yaml_content, encoding="utf-8")
-            console.print(f"\n[green]✓[/green] Rules saved to [cyan]{output}[/cyan]")
+            console.print(f"\n[green]SAVED[/green] Rules saved to [cyan]{output}[/cyan]")
             console.print(f"[dim]Run: duckguard check {source} --config {output}[/dim]")
         else:
             # Display YAML
@@ -290,7 +290,7 @@ def contract(
             if output:
                 yaml_content = contract_to_yaml(contract_obj)
                 Path(output).write_text(yaml_content, encoding="utf-8")
-                console.print(f"\n[green]✓[/green] Contract saved to [cyan]{output}[/cyan]")
+                console.print(f"\n[green]SAVED[/green] Contract saved to [cyan]{output}[/cyan]")
 
         elif action == "validate":
             if not source or not contract_file:
@@ -433,7 +433,7 @@ def info(
             if sem_type == "unknown":
                 sem_type = "-"
             if col_analysis.is_pii:
-                sem_type = f"🔒 {sem_type}"
+                sem_type = f"[PII] {sem_type}"
 
             col_table.add_row(
                 col_name,
@@ -464,11 +464,11 @@ def _display_execution_result(result, verbose: bool = False) -> None:
 
     for check_result in result.results:
         if check_result.passed:
-            status = "[green]✓ PASS[/green]"
+            status = "[green]PASS[/green]"
         elif check_result.severity.value == "warning":
-            status = "[yellow]⚠ WARN[/yellow]"
+            status = "[yellow]WARN[/yellow]"
         else:
-            status = "[red]✗ FAIL[/red]"
+            status = "[red]FAIL[/red]"
 
         col_str = f"[{check_result.column}] " if check_result.column else ""
         table.add_row(
@@ -482,10 +482,10 @@ def _display_execution_result(result, verbose: bool = False) -> None:
     # Summary
     console.print()
     if result.passed:
-        console.print(f"[green]✓ All {result.total_checks} checks passed[/green]")
+        console.print(f"[green]All {result.total_checks} checks passed[/green]")
     else:
         console.print(
-            f"[red]✗ {result.failed_count} failed[/red], "
+            f"[red]{result.failed_count} failed[/red], "
             f"[yellow]{result.warning_count} warnings[/yellow], "
             f"[green]{result.passed_count} passed[/green]"
         )
@@ -499,7 +499,7 @@ def _display_quick_results(results: list) -> None:
     table.add_column("Details")
 
     for check_name, passed, details, _ in results:
-        status = "[green]✓ PASS[/green]" if passed else "[red]✗ FAIL[/red]"
+        status = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
         table.add_row(check_name, status, details)
 
     console.print(table)
@@ -526,8 +526,8 @@ def _display_discovery_results(analysis, ruleset) -> None:
     # PII warning
     if analysis.pii_columns:
         console.print(Panel(
-            "[yellow]⚠️ PII Detected[/yellow]\n" +
-            "\n".join(f"  • {col}" for col in analysis.pii_columns),
+            "[yellow]WARNING: PII Detected[/yellow]\n" +
+            "\n".join(f"  - {col}" for col in analysis.pii_columns),
             border_style="yellow",
         ))
         console.print()
@@ -541,7 +541,7 @@ def _display_discovery_results(analysis, ruleset) -> None:
     for col in analysis.columns[:15]:
         sem = col.semantic_type.value
         if col.is_pii:
-            sem = f"🔒 {sem}"
+            sem = f"[PII] {sem}"
 
         rules = ", ".join(col.suggested_validations[:3])
         if len(col.suggested_validations) > 3:
@@ -574,9 +574,9 @@ def _display_contract(contract) -> None:
         table.add_row(
             field_obj.name,
             type_str,
-            "✓" if field_obj.required else "",
-            "✓" if field_obj.unique else "",
-            "🔒" if field_obj.pii else "",
+            "Y" if field_obj.required else "",
+            "Y" if field_obj.unique else "",
+            "[PII]" if field_obj.pii else "",
         )
 
     console.print(table)
@@ -585,14 +585,14 @@ def _display_contract(contract) -> None:
     if contract.quality:
         console.print("\n[bold]Quality SLA:[/bold]")
         if contract.quality.completeness:
-            console.print(f"  • Completeness: {contract.quality.completeness}%")
+            console.print(f"  - Completeness: {contract.quality.completeness}%")
         if contract.quality.row_count_min:
-            console.print(f"  • Min rows: {contract.quality.row_count_min:,}")
+            console.print(f"  - Min rows: {contract.quality.row_count_min:,}")
 
 
 def _display_contract_validation(result) -> None:
     """Display contract validation results."""
-    status = "[green]✓ PASSED[/green]" if result.passed else "[red]✗ FAILED[/red]"
+    status = "[green]PASSED[/green]" if result.passed else "[red]FAILED[/red]"
     console.print(f"Contract: [bold]{result.contract.name}[/bold] v{result.contract.version}")
     console.print(f"Status: {status}\n")
 
@@ -632,19 +632,19 @@ def _display_contract_diff(diff) -> None:
     if diff.breaking_changes:
         console.print("[red bold]Breaking Changes:[/red bold]")
         for change in diff.breaking_changes:
-            console.print(f"  ❌ {change.message}")
+            console.print(f"  [red]X[/red] {change.message}")
         console.print()
 
     if diff.minor_changes:
         console.print("[yellow bold]Minor Changes:[/yellow bold]")
         for change in diff.minor_changes:
-            console.print(f"  ⚠️ {change.message}")
+            console.print(f"  [yellow]![/yellow] {change.message}")
         console.print()
 
     if diff.non_breaking_changes:
         console.print("[dim]Non-breaking Changes:[/dim]")
         for change in diff.non_breaking_changes:
-            console.print(f"  • {change.message}")
+            console.print(f"  - {change.message}")
 
     console.print(f"\n[dim]Suggested version bump: {diff.suggest_version_bump()}[/dim]")
 
@@ -652,10 +652,10 @@ def _display_contract_diff(diff) -> None:
 def _display_anomaly_report(report) -> None:
     """Display anomaly detection report."""
     if not report.has_anomalies:
-        console.print("[green]✓ No anomalies detected[/green]")
+        console.print("[green]No anomalies detected[/green]")
         return
 
-    console.print(f"[yellow bold]⚠️ {report.anomaly_count} anomalies detected[/yellow bold]\n")
+    console.print(f"[yellow bold]WARNING: {report.anomaly_count} anomalies detected[/yellow bold]\n")
 
     table = Table(title="Anomalies")
     table.add_column("Column", style="cyan")
@@ -692,6 +692,264 @@ def _save_results(output: str, dataset, results) -> None:
         ]
 
     Path(output).write_text(json.dumps(data, indent=2))
+
+
+@app.command()
+def history(
+    source: str | None = typer.Argument(None, help="Data source to query history for (optional)"),
+    last: str = typer.Option("30d", "--last", "-l", help="Time period: 7d, 30d, 90d"),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
+    trend: bool = typer.Option(False, "--trend", "-t", help="Show quality trend analysis"),
+    db_path: str | None = typer.Option(None, "--db", help="Path to history database"),
+) -> None:
+    """
+    Query historical validation results.
+
+    Shows past validation runs and quality score trends over time.
+
+    [bold]Examples:[/bold]
+        duckguard history                        # Show all recent runs
+        duckguard history data.csv               # Show runs for specific source
+        duckguard history data.csv --last 7d    # Last 7 days
+        duckguard history data.csv --trend      # Show trend analysis
+        duckguard history --format json         # Output as JSON
+    """
+    import json as json_module
+
+    from duckguard.history import HistoryStorage, TrendAnalyzer
+
+    try:
+        storage = HistoryStorage(db_path=db_path)
+
+        # Parse time period
+        days = int(last.rstrip("d"))
+
+        if trend and source:
+            # Show trend analysis
+            console.print(f"\n[bold blue]DuckGuard[/bold blue] Trend Analysis: [cyan]{source}[/cyan]\n")
+
+            analyzer = TrendAnalyzer(storage)
+            analysis = analyzer.analyze(source, days=days)
+
+            if analysis.total_runs == 0:
+                console.print("[yellow]No historical data found for this source.[/yellow]")
+                console.print("[dim]Run some validations first, then check history.[/dim]")
+                return
+
+            # Display trend summary
+            trend_color = {
+                "improving": "green",
+                "declining": "red",
+                "stable": "yellow",
+            }.get(analysis.score_trend, "white")
+
+            trend_symbol = {
+                "improving": "[+]",
+                "declining": "[-]",
+                "stable": "[=]",
+            }.get(analysis.score_trend, "[=]")
+
+            console.print(Panel(
+                f"[bold]Quality Trend: [{trend_color}]{trend_symbol} {analysis.score_trend.upper()}[/{trend_color}][/bold]\n\n"
+                f"Current Score: [cyan]{analysis.current_score:.1f}%[/cyan]\n"
+                f"Average Score: [cyan]{analysis.average_score:.1f}%[/cyan]\n"
+                f"Min/Max: [dim]{analysis.min_score:.1f}% - {analysis.max_score:.1f}%[/dim]\n"
+                f"Change: [{trend_color}]{analysis.trend_change:+.1f}%[/{trend_color}]\n"
+                f"Total Runs: [cyan]{analysis.total_runs}[/cyan]\n"
+                f"Pass Rate: [cyan]{analysis.pass_rate:.1f}%[/cyan]",
+                title=f"Last {days} Days",
+                border_style=trend_color,
+            ))
+
+            if analysis.anomalies:
+                console.print(f"\n[yellow]Anomalies detected on: {', '.join(analysis.anomalies)}[/yellow]")
+
+            # Show daily data if available
+            if analysis.daily_data and len(analysis.daily_data) <= 14:
+                console.print()
+                table = Table(title="Daily Quality Scores")
+                table.add_column("Date", style="cyan")
+                table.add_column("Score", justify="right")
+                table.add_column("Runs", justify="right")
+                table.add_column("Pass Rate", justify="right")
+
+                for day in analysis.daily_data:
+                    pass_rate = (day.passed_count / day.run_count * 100) if day.run_count > 0 else 0
+                    score_style = "green" if day.avg_score >= 80 else "yellow" if day.avg_score >= 60 else "red"
+                    table.add_row(
+                        day.date,
+                        f"[{score_style}]{day.avg_score:.1f}%[/{score_style}]",
+                        str(day.run_count),
+                        f"{pass_rate:.0f}%",
+                    )
+
+                console.print(table)
+
+        else:
+            # Show run history
+            if source:
+                console.print(f"\n[bold blue]DuckGuard[/bold blue] History: [cyan]{source}[/cyan]\n")
+                runs = storage.get_runs(source, limit=20)
+            else:
+                console.print("\n[bold blue]DuckGuard[/bold blue] Recent Validation History\n")
+                runs = storage.get_runs(limit=20)
+
+            if not runs:
+                console.print("[yellow]No historical data found.[/yellow]")
+                console.print("[dim]Run some validations first, then check history.[/dim]")
+                return
+
+            if output_format == "json":
+                # JSON output
+                data = [
+                    {
+                        "run_id": run.run_id,
+                        "source": run.source,
+                        "started_at": run.started_at.isoformat(),
+                        "quality_score": run.quality_score,
+                        "passed": run.passed,
+                        "total_checks": run.total_checks,
+                        "passed_count": run.passed_count,
+                        "failed_count": run.failed_count,
+                        "warning_count": run.warning_count,
+                    }
+                    for run in runs
+                ]
+                console.print(json_module.dumps(data, indent=2))
+            else:
+                # Table output
+                table = Table(title=f"Validation Runs (Last {days} days)")
+                table.add_column("Date", style="cyan")
+                table.add_column("Source", style="dim", max_width=40)
+                table.add_column("Score", justify="right")
+                table.add_column("Status", justify="center")
+                table.add_column("Checks", justify="right")
+
+                for run in runs:
+                    score_style = "green" if run.quality_score >= 80 else "yellow" if run.quality_score >= 60 else "red"
+                    status = "[green]PASS[/green]" if run.passed else "[red]FAIL[/red]"
+
+                    table.add_row(
+                        run.started_at.strftime("%Y-%m-%d %H:%M"),
+                        run.source[:40],
+                        f"[{score_style}]{run.quality_score:.1f}%[/{score_style}]",
+                        status,
+                        f"{run.passed_count}/{run.total_checks}",
+                    )
+
+                console.print(table)
+
+                # Show sources summary
+                sources = storage.get_sources()
+                if len(sources) > 1:
+                    console.print(f"\n[dim]Tracked sources: {len(sources)}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def report(
+    source: str = typer.Argument(..., help="Data source path or connection string"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Path to duckguard.yaml rules file"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
+    output_format: str = typer.Option("html", "--format", "-f", help="Output format: html, pdf"),
+    output: str = typer.Option("report.html", "--output", "-o", help="Output file path"),
+    title: str = typer.Option("DuckGuard Data Quality Report", "--title", help="Report title"),
+    include_passed: bool = typer.Option(True, "--include-passed/--no-passed", help="Include passed checks"),
+    store: bool = typer.Option(False, "--store", "-s", help="Store results in history"),
+) -> None:
+    """
+    Generate a data quality report (HTML or PDF).
+
+    Runs validation checks and generates a beautiful, shareable report.
+
+    [bold]Examples:[/bold]
+        duckguard report data.csv
+        duckguard report data.csv --format pdf --output report.pdf
+        duckguard report data.csv --config rules.yaml --title "Orders Quality"
+        duckguard report data.csv --store  # Also save to history
+    """
+    from duckguard.connectors import connect
+    from duckguard.reports import generate_html_report, generate_pdf_report
+    from duckguard.rules import execute_rules, generate_rules, load_rules
+
+    # Determine output path based on format
+    if output == "report.html" and output_format == "pdf":
+        output = "report.pdf"
+
+    console.print(f"\n[bold blue]DuckGuard[/bold blue] Generating {output_format.upper()} report\n")
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task("Connecting to data source...", total=None)
+            dataset = connect(source, table=table)
+
+        console.print(f"[dim]Source: {source}[/dim]")
+        console.print(f"[dim]Rows: {dataset.row_count:,} | Columns: {dataset.column_count}[/dim]\n")
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task("Running validation checks...", total=None)
+
+            if config:
+                ruleset = load_rules(config)
+            else:
+                ruleset = generate_rules(dataset, as_yaml=False)
+
+            result = execute_rules(ruleset, dataset=dataset)
+
+        # Store in history if requested
+        if store:
+            from duckguard.history import HistoryStorage
+
+            storage = HistoryStorage()
+            run_id = storage.store(result)
+            console.print(f"[dim]Stored in history: {run_id[:8]}...[/dim]\n")
+
+        # Display summary
+        status = "[green]PASSED[/green]" if result.passed else "[red]FAILED[/red]"
+        console.print(f"Validation: {status}")
+        console.print(f"Quality Score: [cyan]{result.quality_score:.1f}%[/cyan]")
+        console.print(f"Checks: {result.passed_count}/{result.total_checks} passed\n")
+
+        # Generate report
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Generating {output_format.upper()} report...", total=None)
+
+            if output_format.lower() == "pdf":
+                generate_pdf_report(result, output, title=title, include_passed=include_passed)
+            else:
+                generate_html_report(result, output, title=title, include_passed=include_passed)
+
+        console.print(f"[green]SAVED[/green] Report saved to [cyan]{output}[/cyan]")
+        console.print("[dim]Open in browser to view the report[/dim]")
+
+    except ImportError as e:
+        if "weasyprint" in str(e).lower():
+            console.print("[red]Error:[/red] PDF generation requires weasyprint.")
+            console.print("[dim]Install with: pip install duckguard[reports][/dim]")
+        else:
+            console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

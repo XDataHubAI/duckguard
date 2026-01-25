@@ -14,6 +14,11 @@ Data quality that just works. Python-native, DuckDB-powered, 10x faster.
 
 ```bash
 pip install duckguard
+
+# With optional features
+pip install duckguard[reports]   # HTML/PDF reports
+pip install duckguard[airflow]   # Airflow integration
+pip install duckguard[all]       # All features
 ```
 
 ## 60-Second Demo
@@ -51,6 +56,10 @@ assert orders.status.isin(['pending', 'shipped', 'delivered'])
 | **Slack/Teams Alerts** | Get notified when checks fail |
 | **Row-Level Errors** | See exactly which rows failed |
 | **dbt Integration** | Export rules as dbt tests |
+| **HTML/PDF Reports** | Generate beautiful shareable reports |
+| **Historical Tracking** | Store and analyze quality trends over time |
+| **Airflow Operator** | Native integration for data pipelines |
+| **GitHub Action** | CI/CD data quality gates |
 
 ## Quick Examples
 
@@ -138,6 +147,61 @@ dbt.generate_singular_tests(rules, "tests/")
 rules = dbt.import_from_dbt("models/schema.yml")
 ```
 
+### HTML/PDF Reports
+```python
+from duckguard import execute_rules, load_rules
+from duckguard.reports import generate_html_report, generate_pdf_report
+
+result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
+
+# Generate beautiful HTML report
+generate_html_report(result, "report.html", title="Orders Quality Report")
+
+# Generate PDF report (requires weasyprint)
+generate_pdf_report(result, "report.pdf")
+```
+
+### Historical Tracking
+```python
+from duckguard.history import HistoryStorage, TrendAnalyzer
+
+# Store validation results
+storage = HistoryStorage()  # Uses ~/.duckguard/history.db
+run_id = storage.store(result)
+
+# Query historical runs
+runs = storage.get_runs("orders.csv", limit=10)
+
+# Analyze quality trends
+analyzer = TrendAnalyzer(storage)
+trend = analyzer.analyze("orders.csv", days=30)
+print(f"Trend: {trend.score_trend}, Pass rate: {trend.pass_rate}%")
+```
+
+### Airflow Integration
+```python
+from duckguard.integrations.airflow import DuckGuardOperator
+
+# Use in your Airflow DAG
+validate_orders = DuckGuardOperator(
+    task_id="validate_orders",
+    source="s3://bucket/orders.parquet",
+    config="duckguard.yaml",
+    fail_on_error=True,
+    store_history=True,
+)
+```
+
+### GitHub Action
+```yaml
+# .github/workflows/data-quality.yml
+- uses: XDataHubAI/duckguard/.github/actions/duckguard-check@main
+  with:
+    source: data/orders.csv
+    config: duckguard.yaml
+    fail-on-warning: false
+```
+
 ## Supported Sources
 
 **Files:** CSV, Parquet, JSON, Excel
@@ -160,6 +224,9 @@ duckguard discover <file>    # Auto-generate rules
 duckguard contract generate  # Create data contract
 duckguard contract validate  # Validate against contract
 duckguard anomaly <file>     # Detect anomalies
+duckguard report <file>      # Generate HTML/PDF report
+duckguard history            # View validation history
+duckguard history --trend    # Analyze quality trends
 ```
 
 ## Column Methods
