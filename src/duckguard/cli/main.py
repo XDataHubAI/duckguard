@@ -338,17 +338,28 @@ def contract(
 def anomaly(
     source: str = typer.Argument(..., help="Path to file or connection string"),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
-    method: str = typer.Option("zscore", "--method", "-m", help="Detection method: zscore, iqr, percent_change"),
+    method: str = typer.Option("zscore", "--method", "-m", help="Method: zscore, iqr, percent_change, baseline, ks_test"),
     threshold: float | None = typer.Option(None, "--threshold", help="Detection threshold"),
     columns: list[str] | None = typer.Option(None, "--column", "-c", help="Specific columns to check"),
+    learn_baseline: bool = typer.Option(False, "--learn-baseline", "-L", help="Learn and store baseline from current data"),
 ) -> None:
     """
     Detect anomalies in data.
+
+    [bold]Methods:[/bold]
+        zscore         - Z-score based detection (default)
+        iqr            - Interquartile range detection
+        percent_change - Percent change from baseline
+        baseline       - Compare to learned baseline (ML)
+        ks_test        - Distribution drift detection (ML)
 
     [bold]Examples:[/bold]
         duckguard anomaly data.csv
         duckguard anomaly data.csv --method iqr --threshold 2.0
         duckguard anomaly data.csv --column amount --column quantity
+        duckguard anomaly data.csv --learn-baseline     # Store baseline
+        duckguard anomaly data.csv --method baseline    # Compare to baseline
+        duckguard anomaly data.csv --method ks_test     # Detect drift
     """
     from duckguard.anomaly import detect_anomalies
     from duckguard.connectors import connect
@@ -362,8 +373,38 @@ def anomaly(
             console=console,
             transient=True,
         ) as progress:
-            progress.add_task("Analyzing data...", total=None)
+            if learn_baseline:
+                progress.add_task("Learning baseline...", total=None)
+            else:
+                progress.add_task("Analyzing data...", total=None)
+
             dataset = connect(source, table=table)
+
+            # Handle baseline learning
+            if learn_baseline:
+                from duckguard.anomaly import BaselineMethod
+                from duckguard.history import HistoryStorage
+
+                storage = HistoryStorage()
+                baseline_method = BaselineMethod(storage=storage)
+
+                # Get numeric columns to learn baselines for
+                target_columns = columns if columns else dataset.columns
+                learned = 0
+
+                for col_name in target_columns:
+                    col = dataset[col_name]
+                    if col.mean is not None:  # Numeric column
+                        values = col.values
+                        baseline_method.fit(values)
+                        baseline_method.save_baseline(source, col_name)
+                        learned += 1
+
+                console.print(f"[green]LEARNED[/green] Baselines stored for {learned} columns")
+                console.print(f"[dim]Use --method baseline to compare against stored baselines[/dim]")
+                return
+
+            # Regular anomaly detection
             report = detect_anomalies(
                 dataset,
                 method=method,
@@ -947,6 +988,220 @@ def report(
         else:
             console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def freshness(
+    source: str = typer.Argument(..., help="Data source path"),
+    column: str | None = typer.Option(None, "--column", "-c", help="Timestamp column to check"),
+    max_age: str = typer.Option("24h", "--max-age", "-m", help="Maximum acceptable age: 1h, 6h, 24h, 7d"),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
+) -> None:
+    """
+    Check data freshness.
+
+    Monitors how recently data was updated using file modification time
+    or timestamp columns.
+
+    [bold]Examples:[/bold]
+        duckguard freshness data.csv
+        duckguard freshness data.csv --max-age 6h
+        duckguard freshness data.csv --column updated_at
+        duckguard freshness data.csv --format json
+    """
+    import json as json_module
+
+    from duckguard.connectors import connect
+    from duckguard.freshness import FreshnessMonitor
+    from duckguard.freshness.monitor import parse_age_string
+
+    console.print(f"\n[bold blue]DuckGuard[/bold blue] Checking freshness: [cyan]{source}[/cyan]\n")
+
+    try:
+        threshold = parse_age_string(max_age)
+        monitor = FreshnessMonitor(threshold=threshold)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task("Checking freshness...", total=None)
+
+            if column:
+                dataset = connect(source)
+                result = monitor.check_column_timestamp(dataset, column)
+            else:
+                # Try file mtime first, fallback to dataset
+                from pathlib import Path
+                if Path(source).exists():
+                    result = monitor.check_file_mtime(source)
+                else:
+                    dataset = connect(source)
+                    result = monitor.check(dataset)
+
+        if output_format == "json":
+            console.print(json_module.dumps(result.to_dict(), indent=2))
+        else:
+            # Display table
+            status_color = "green" if result.is_fresh else "red"
+            status_text = "FRESH" if result.is_fresh else "STALE"
+
+            console.print(Panel(
+                f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
+                f"Last Modified: [cyan]{result.last_modified.strftime('%Y-%m-%d %H:%M:%S') if result.last_modified else 'Unknown'}[/cyan]\n"
+                f"Age: [cyan]{result.age_human}[/cyan]\n"
+                f"Threshold: [dim]{max_age}[/dim]\n"
+                f"Method: [dim]{result.method.value}[/dim]",
+                title="Freshness Check",
+                border_style=status_color,
+            ))
+
+        if not result.is_fresh:
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def schema(
+    source: str = typer.Argument(..., help="Data source path"),
+    action: str = typer.Option("show", "--action", "-a", help="Action: show, capture, history, changes"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of results to show"),
+) -> None:
+    """
+    Track schema evolution over time.
+
+    Captures schema snapshots and detects changes between versions.
+
+    [bold]Actions:[/bold]
+        show     - Show current schema
+        capture  - Capture a schema snapshot
+        history  - Show schema snapshot history
+        changes  - Detect changes from last snapshot
+
+    [bold]Examples:[/bold]
+        duckguard schema data.csv                    # Show current schema
+        duckguard schema data.csv --action capture  # Capture snapshot
+        duckguard schema data.csv --action history  # View history
+        duckguard schema data.csv --action changes  # Detect changes
+    """
+    import json as json_module
+
+    from duckguard.connectors import connect
+    from duckguard.schema_history import SchemaTracker, SchemaChangeAnalyzer
+
+    console.print(f"\n[bold blue]DuckGuard[/bold blue] Schema: [cyan]{source}[/cyan]\n")
+
+    try:
+        dataset = connect(source, table=table)
+        tracker = SchemaTracker()
+        analyzer = SchemaChangeAnalyzer()
+
+        if action == "show":
+            # Display current schema
+            col_table = Table(title="Current Schema")
+            col_table.add_column("Column", style="cyan")
+            col_table.add_column("Type", style="magenta")
+            col_table.add_column("Position", justify="right")
+
+            ref = dataset.engine.get_source_reference(dataset.source)
+            result = dataset.engine.execute(f"DESCRIBE {ref}")
+
+            for i, row in enumerate(result.fetchall()):
+                col_table.add_row(row[0], row[1], str(i))
+
+            console.print(col_table)
+            console.print(f"\n[dim]Total columns: {dataset.column_count}[/dim]")
+
+        elif action == "capture":
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+                transient=True,
+            ) as progress:
+                progress.add_task("Capturing schema snapshot...", total=None)
+                snapshot = tracker.capture(dataset)
+
+            console.print(f"[green]CAPTURED[/green] Schema snapshot: [cyan]{snapshot.snapshot_id[:8]}...[/cyan]")
+            console.print(f"[dim]Columns: {snapshot.column_count} | Rows: {snapshot.row_count:,}[/dim]")
+            console.print(f"[dim]Captured at: {snapshot.captured_at.strftime('%Y-%m-%d %H:%M:%S')}[/dim]")
+
+        elif action == "history":
+            history = tracker.get_history(source, limit=limit)
+
+            if not history:
+                console.print("[yellow]No schema history found for this source.[/yellow]")
+                console.print("[dim]Use --action capture to create a snapshot first.[/dim]")
+                return
+
+            if output_format == "json":
+                data = [s.to_dict() for s in history]
+                console.print(json_module.dumps(data, indent=2))
+            else:
+                table_obj = Table(title="Schema History")
+                table_obj.add_column("Snapshot ID", style="cyan")
+                table_obj.add_column("Captured At", style="dim")
+                table_obj.add_column("Columns", justify="right")
+                table_obj.add_column("Rows", justify="right")
+
+                for snapshot in history:
+                    table_obj.add_row(
+                        snapshot.snapshot_id[:8] + "...",
+                        snapshot.captured_at.strftime("%Y-%m-%d %H:%M"),
+                        str(snapshot.column_count),
+                        f"{snapshot.row_count:,}" if snapshot.row_count else "-",
+                    )
+
+                console.print(table_obj)
+
+        elif action == "changes":
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+                transient=True,
+            ) as progress:
+                progress.add_task("Detecting schema changes...", total=None)
+                report = analyzer.detect_changes(dataset)
+
+            if not report.has_changes:
+                console.print("[green]No schema changes detected[/green]")
+                console.print(f"[dim]Snapshot captured: {report.current_snapshot.snapshot_id[:8]}...[/dim]")
+                return
+
+            # Display changes
+            console.print(f"[yellow bold]{len(report.changes)} schema changes detected[/yellow bold]\n")
+
+            if report.has_breaking_changes:
+                console.print("[red bold]BREAKING CHANGES:[/red bold]")
+                for change in report.breaking_changes:
+                    console.print(f"  [red]X[/red] {change}")
+                console.print()
+
+            non_breaking = report.non_breaking_changes
+            if non_breaking:
+                console.print("[dim]Non-breaking changes:[/dim]")
+                for change in non_breaking:
+                    console.print(f"  - {change}")
+
+            if report.has_breaking_changes:
+                raise typer.Exit(1)
+
+        else:
+            console.print(f"[red]Error:[/red] Unknown action: {action}")
+            console.print("[dim]Valid actions: show, capture, history, changes[/dim]")
+            raise typer.Exit(1)
+
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)

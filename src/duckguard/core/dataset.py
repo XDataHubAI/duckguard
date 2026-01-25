@@ -8,7 +8,9 @@ from duckguard.core.column import Column
 from duckguard.core.engine import DuckGuardEngine
 
 if TYPE_CHECKING:
+    from datetime import timedelta
     from duckguard.core.scoring import QualityScore
+    from duckguard.freshness import FreshnessResult
 
 
 class Dataset:
@@ -226,6 +228,51 @@ class Dataset:
     def __iter__(self):
         """Iterate over column names."""
         return iter(self.columns)
+
+    @property
+    def freshness(self) -> "FreshnessResult":
+        """
+        Get freshness information for this dataset.
+
+        Returns:
+            FreshnessResult with freshness information including:
+            - last_modified: When data was last updated
+            - age_seconds: Age in seconds
+            - age_human: Human-readable age string
+            - is_fresh: Whether data meets default 24h threshold
+
+        Example:
+            data = connect("data.csv")
+            print(data.freshness.age_human)  # "2 hours ago"
+            print(data.freshness.is_fresh)   # True
+        """
+        from duckguard.freshness import FreshnessMonitor
+
+        monitor = FreshnessMonitor()
+        return monitor.check(self)
+
+    def is_fresh(self, max_age: "timedelta") -> bool:
+        """
+        Check if data is fresher than the specified maximum age.
+
+        Args:
+            max_age: Maximum acceptable age for the data
+
+        Returns:
+            True if data is fresher than max_age
+
+        Example:
+            from datetime import timedelta
+            data = connect("data.csv")
+
+            if not data.is_fresh(timedelta(hours=6)):
+                print("Data is stale!")
+        """
+        from duckguard.freshness import FreshnessMonitor
+
+        monitor = FreshnessMonitor(threshold=max_age)
+        result = monitor.check(self)
+        return result.is_fresh
 
     def score(
         self,

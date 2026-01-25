@@ -73,6 +73,7 @@ class SemanticType(Enum):
     TITLE = "title"
     SLUG = "slug"
     CODE = "code"
+    IDENTIFIER = "identifier"
 
     # Unknown
     UNKNOWN = "unknown"
@@ -216,6 +217,9 @@ NAME_PATTERNS: dict[SemanticType, list[str]] = {
     SemanticType.CODE: [
         r"code", r".*_code$"
     ],
+    SemanticType.IDENTIFIER: [
+        r".*_id$", r".*_key$", r".*_code$", r".*_num(ber)?$", r".*_no$"
+    ],
 }
 
 # Value patterns for detection
@@ -235,6 +239,15 @@ VALUE_PATTERNS: dict[SemanticType, str] = {
     SemanticType.SLUG: r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     SemanticType.LATITUDE: r"^-?([1-8]?\d(\.\d+)?|90(\.0+)?)$",
     SemanticType.LONGITUDE: r"^-?(1[0-7]\d(\.\d+)?|180(\.0+)?|\d{1,2}(\.\d+)?)$",
+    # Identifier pattern: PREFIX-NUMBER, ABC123, etc. (uppercase or mixed case with numbers)
+    SemanticType.IDENTIFIER: r"^[A-Z][A-Z0-9]*[-_]?\d+$|^[A-Z]{2,}[-_][A-Z0-9]+$",
+}
+
+# Patterns that must be matched case-sensitively (not using IGNORECASE)
+CASE_SENSITIVE_PATTERNS = {
+    SemanticType.SLUG,  # Slugs must be lowercase
+    SemanticType.IDENTIFIER,  # Identifiers are typically uppercase
+    SemanticType.COUNTRY_CODE,  # Country codes are uppercase
 }
 
 # PII types that should be flagged
@@ -269,6 +282,7 @@ TYPE_VALIDATIONS: dict[SemanticType, list[str]] = {
     SemanticType.LONGITUDE: ["range: [-180, 180]"],
     SemanticType.BOOLEAN: ["allowed_values: [true, false]"],
     SemanticType.COUNTRY_CODE: ["pattern: country_code"],
+    SemanticType.IDENTIFIER: ["not_null"],
 }
 
 
@@ -386,9 +400,11 @@ class SemanticTypeDetector:
             string_values = [str(v) for v in sample_values if v is not None]
             if string_values:
                 for sem_type, pattern in self.value_patterns.items():
+                    # Use case-sensitive matching for certain patterns
+                    flags = 0 if sem_type in CASE_SENSITIVE_PATTERNS else re.IGNORECASE
                     match_count = sum(
                         1 for v in string_values[:50]
-                        if re.match(pattern, v, re.IGNORECASE)
+                        if re.match(pattern, v, flags)
                     )
                     match_rate = match_count / min(len(string_values), 50)
 

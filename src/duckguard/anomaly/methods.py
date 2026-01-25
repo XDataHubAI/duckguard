@@ -407,12 +407,22 @@ def create_method(
     """Create an anomaly detection method by name.
 
     Args:
-        method_name: Name of the method
+        method_name: Name of the method. Options:
+            - "zscore", "z_score": Z-Score method
+            - "iqr": Interquartile Range method
+            - "percent_change", "pct_change": Percent change method
+            - "modified_zscore", "mad": Modified Z-Score (MAD) method
+            - "baseline": ML-based baseline comparison
+            - "ks_test": Kolmogorov-Smirnov distribution test
+            - "seasonal": Seasonal pattern detection
         **kwargs: Method-specific parameters
 
     Returns:
         Configured AnomalyMethod
     """
+    # Import ML methods lazily to avoid circular imports
+    from duckguard.anomaly.ml_methods import BaselineMethod, KSTestMethod, SeasonalMethod
+
     methods = {
         "zscore": ZScoreMethod,
         "z_score": ZScoreMethod,
@@ -421,10 +431,14 @@ def create_method(
         "pct_change": PercentChangeMethod,
         "modified_zscore": ModifiedZScoreMethod,
         "mad": ModifiedZScoreMethod,
+        "baseline": BaselineMethod,
+        "ks_test": KSTestMethod,
+        "ks": KSTestMethod,
+        "seasonal": SeasonalMethod,
     }
 
     method_class = methods.get(method_name.lower())
     if not method_class:
-        raise ValueError(f"Unknown anomaly method: {method_name}")
+        raise ValueError(f"Unknown anomaly method: {method_name}. Available: {list(methods.keys())}")
 
     return method_class(**kwargs)

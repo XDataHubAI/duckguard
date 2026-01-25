@@ -179,8 +179,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none"
                               stroke="{{ '#10b981' if quality_score >= 80 else '#f59e0b' if quality_score >= 60 else '#ef4444' }}"
                               stroke-width="12" stroke-linecap="round"
-                              stroke-dasharray="{{ quality_score * 2.51 }} 251"
-                              transform="rotate(-180, 100, 90)"/>
+                              stroke-dasharray="{{ quality_score * 2.51 }} 251"/>
                     </svg>
                     <div class="gauge-value">{{ "%.0f"|format(quality_score) }}</div>
                 </div>

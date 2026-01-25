@@ -14,6 +14,7 @@ from duckguard.connectors import connect
 from duckguard.core.dataset import Dataset
 from duckguard.rules.schema import (
     BUILTIN_PATTERNS,
+    CASE_SENSITIVE_PATTERNS,
     Check,
     CheckType,
     ColumnRules,
@@ -215,9 +216,11 @@ class RuleGenerator:
 
         for pattern_name, pattern in self._patterns.items():
             try:
+                # Use case-sensitive matching for certain patterns (slug, identifier)
+                flags = 0 if pattern_name in CASE_SENSITIVE_PATTERNS else re.IGNORECASE
                 matches = sum(
                     1 for v in sample
-                    if re.match(pattern, str(v), re.IGNORECASE)
+                    if re.match(pattern, str(v), flags)
                 )
                 match_rate = matches / len(sample)
 

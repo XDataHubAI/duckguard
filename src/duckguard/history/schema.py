@@ -7,7 +7,7 @@ enabling trend analysis and historical comparison.
 from __future__ import annotations
 
 # Schema version for migrations
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # SQL to create all tables
 CREATE_TABLES_SQL = """
@@ -88,6 +88,57 @@ CREATE INDEX IF NOT EXISTS idx_runs_source_started ON runs(source, started_at);
 CREATE INDEX IF NOT EXISTS idx_check_results_run_id ON check_results(run_id);
 CREATE INDEX IF NOT EXISTS idx_failed_rows_run_id ON failed_rows_sample(run_id);
 CREATE INDEX IF NOT EXISTS idx_quality_trends_source_date ON quality_trends(source, date);
+
+-- Schema snapshots: Store schema state at points in time
+CREATE TABLE IF NOT EXISTS schema_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    snapshot_id TEXT UNIQUE NOT NULL,
+    captured_at TEXT NOT NULL,
+    schema_json TEXT NOT NULL,
+    column_count INTEGER NOT NULL,
+    row_count INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Schema changes: Track schema evolution over time
+CREATE TABLE IF NOT EXISTS schema_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    detected_at TEXT NOT NULL,
+    previous_snapshot_id TEXT,
+    current_snapshot_id TEXT NOT NULL,
+    change_type TEXT NOT NULL,
+    column_name TEXT,
+    previous_value TEXT,
+    current_value TEXT,
+    is_breaking INTEGER NOT NULL,
+    severity TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (previous_snapshot_id) REFERENCES schema_snapshots(snapshot_id),
+    FOREIGN KEY (current_snapshot_id) REFERENCES schema_snapshots(snapshot_id)
+);
+
+-- Baselines: Store learned baselines for anomaly detection
+CREATE TABLE IF NOT EXISTS baselines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    column_name TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    baseline_value TEXT NOT NULL,
+    sample_size INTEGER,
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    UNIQUE(source, column_name, metric)
+);
+
+-- Additional indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_schema_snapshots_source ON schema_snapshots(source);
+CREATE INDEX IF NOT EXISTS idx_schema_snapshots_captured_at ON schema_snapshots(captured_at);
+CREATE INDEX IF NOT EXISTS idx_schema_changes_source ON schema_changes(source);
+CREATE INDEX IF NOT EXISTS idx_schema_changes_detected_at ON schema_changes(detected_at);
+CREATE INDEX IF NOT EXISTS idx_baselines_source ON baselines(source);
+CREATE INDEX IF NOT EXISTS idx_baselines_source_column ON baselines(source, column_name);
 """
 
 # Pre-built queries for common operations
@@ -179,5 +230,72 @@ QUERIES = {
     "get_run_by_id": """
         SELECT * FROM runs
         WHERE run_id = ?
+    """,
+    # Schema snapshot queries
+    "insert_schema_snapshot": """
+        INSERT INTO schema_snapshots (
+            source, snapshot_id, captured_at, schema_json, column_count, row_count
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    """,
+    "get_schema_snapshots": """
+        SELECT * FROM schema_snapshots
+        WHERE source = ?
+        ORDER BY captured_at DESC
+        LIMIT ?
+    """,
+    "get_latest_schema_snapshot": """
+        SELECT * FROM schema_snapshots
+        WHERE source = ?
+        ORDER BY captured_at DESC
+        LIMIT 1
+    """,
+    "get_schema_snapshot_by_id": """
+        SELECT * FROM schema_snapshots
+        WHERE snapshot_id = ?
+    """,
+    # Schema change queries
+    "insert_schema_change": """
+        INSERT INTO schema_changes (
+            source, detected_at, previous_snapshot_id, current_snapshot_id,
+            change_type, column_name, previous_value, current_value,
+            is_breaking, severity
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+    "get_schema_changes": """
+        SELECT * FROM schema_changes
+        WHERE source = ?
+        ORDER BY detected_at DESC
+        LIMIT ?
+    """,
+    "get_schema_changes_since": """
+        SELECT * FROM schema_changes
+        WHERE source = ?
+          AND detected_at >= ?
+        ORDER BY detected_at DESC
+    """,
+    # Baseline queries
+    "upsert_baseline": """
+        INSERT INTO baselines (
+            source, column_name, metric, baseline_value, sample_size, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source, column_name, metric) DO UPDATE SET
+            baseline_value = excluded.baseline_value,
+            sample_size = excluded.sample_size,
+            updated_at = excluded.updated_at
+    """,
+    "get_baseline": """
+        SELECT * FROM baselines
+        WHERE source = ?
+          AND column_name = ?
+          AND metric = ?
+    """,
+    "get_baselines_for_source": """
+        SELECT * FROM baselines
+        WHERE source = ?
+        ORDER BY column_name, metric
+    """,
+    "delete_baselines_for_source": """
+        DELETE FROM baselines
+        WHERE source = ?
     """,
 }

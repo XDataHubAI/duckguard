@@ -282,8 +282,12 @@ BUILTIN_PATTERNS = {
     "ssn": r"^\d{3}-\d{2}-\d{4}$",
     "zip_us": r"^\d{5}(-\d{4})?$",
     "credit_card": r"^\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}$",
+    "identifier": r"^[A-Z][A-Z0-9]*[-_]?\d+$|^[A-Z]{2,}[-_][A-Z0-9]+$",
     "slug": r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     "alpha": r"^[a-zA-Z]+$",
     "alphanumeric": r"^[a-zA-Z0-9]+$",
     "numeric": r"^-?\d+\.?\d*$",
 }
+
+# Patterns that must be matched case-sensitively
+CASE_SENSITIVE_PATTERNS = {"slug", "identifier"}
