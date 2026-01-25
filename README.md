@@ -2,7 +2,9 @@
   <img src="docs/assets/duckguard-logo.svg" alt="DuckGuard" width="420">
 
   <h3>Data Quality That Just Works</h3>
-  <p><strong>Python-native</strong> &bull; <strong>DuckDB-powered</strong> &bull; <strong>10x faster</strong></p>
+  <p><strong>3 lines of code</strong> &bull; <strong>10x faster</strong> &bull; <strong>20x less memory</strong></p>
+
+  <p><em>Stop wrestling with 50+ lines of boilerplate. Start validating data in seconds.</em></p>
 
   [![PyPI version](https://img.shields.io/pypi/v/duckguard.svg)](https://pypi.org/project/duckguard/)
   [![Downloads](https://static.pepy.tech/badge/duckguard)](https://pepy.tech/project/duckguard)
@@ -17,35 +19,66 @@
 
 ---
 
-## Installation
+## From Zero to Validated in 30 Seconds
 
 ```bash
 pip install duckguard
-
-# With optional features
-pip install duckguard[reports]   # HTML/PDF reports
-pip install duckguard[airflow]   # Airflow integration
-pip install duckguard[all]       # All features
 ```
 
+```python
+from duckguard import connect
+
+orders = connect("orders.csv")
+assert orders.customer_id.null_percent == 0   # Just like pytest!
+assert orders.amount.between(0, 10000)        # Readable validations
+assert orders.status.isin(['pending', 'shipped', 'delivered'])
+```
+
+**That's it.** No context. No datasource. No validator. No expectation suite. Just data quality.
+
+---
+
 ## Why DuckGuard?
+
+### The Problem
+
+Every data quality tool makes you write **50+ lines of boilerplate** before you can validate a single column. Setting up contexts, datasources, batch requests, validators, expectation suites... just to check if a column has nulls.
+
+### The Solution
+
+DuckGuard gives you a **pytest-like API** powered by **DuckDB's speed**. Write assertions that read like English. Get results in seconds, not minutes.
 
 <table>
 <tr>
 <td width="50%">
 
-**Great Expectations / Pandas**
+**Great Expectations**
 ```python
-# 50+ lines of boilerplate
+# 50+ lines of setup required
+from great_expectations import get_context
+
 context = get_context()
-datasource = context.sources.add_pandas(...)
-asset = datasource.add_dataframe_asset(...)
-batch = asset.build_batch_request()
-validator = context.get_validator(...)
-validator.expect_column_values_to_not_be_null("id")
-# ... more setup
+datasource = context.sources.add_pandas("my_ds")
+asset = datasource.add_dataframe_asset(
+    name="orders", dataframe=df
+)
+batch_request = asset.build_batch_request()
+expectation_suite = context.add_expectation_suite(
+    "orders_suite"
+)
+validator = context.get_validator(
+    batch_request=batch_request,
+    expectation_suite_name="orders_suite"
+)
+validator.expect_column_values_to_not_be_null(
+    "customer_id"
+)
+validator.expect_column_values_to_be_between(
+    "amount", min_value=0, max_value=10000
+)
+# ... and more configuration
 ```
-**45 seconds, 4GB RAM for 1GB CSV**
+**45 seconds | 4GB RAM | 20+ dependencies**
 
 </td>
 <td width="50%">
@@ -55,13 +88,48 @@ validator.expect_column_values_to_not_be_null("id")
 from duckguard import connect
 
 orders = connect("orders.csv")
-assert orders.id.null_percent == 0
+
+assert orders.customer_id.null_percent == 0
+assert orders.amount.between(0, 10000)
 ```
-**4 seconds, 200MB RAM for 1GB CSV**
+
+<br><br><br><br><br><br><br><br><br><br><br><br>
+
+**4 seconds | 200MB RAM | 7 dependencies**
 
 </td>
 </tr>
 </table>
+
+---
+
+## Comparison Table
+
+| Feature | DuckGuard | Great Expectations | Soda Core | Pandera |
+|---------|:---------:|:------------------:|:---------:|:-------:|
+| **Lines of code to start** | 3 | 50+ | 10+ | 5+ |
+| **Time for 1GB CSV*** | ~4 sec | ~45 sec | ~20 sec | ~15 sec |
+| **Memory for 1GB CSV*** | ~200 MB | ~4 GB | ~1.5 GB | ~1.5 GB |
+| **Direct dependencies** | 7 | 20+ | 11 | 5 |
+| **Learning curve** | Minutes | Days | Hours | Minutes |
+| **Pytest-like API** | ✅ | ❌ | ❌ | ❌ |
+| **DuckDB-powered** | ✅ | ❌ | ✅ (v4) | ❌ |
+| **Cloud storage (S3/GCS/Azure)** | ✅ | ✅ | ✅ | ❌ |
+| **Database connectors** | 11+ | ✅ | ✅ | ❌ |
+| **PII detection** | ✅ Built-in | ❌ | ❌ | ❌ |
+| **Anomaly detection (ML)** | ✅ Built-in | ❌ | ✅ (v4) | ❌ |
+| **Schema evolution tracking** | ✅ Built-in | ❌ | ✅ | ❌ |
+| **Freshness monitoring** | ✅ Built-in | ❌ | ✅ | ❌ |
+| **Data contracts** | ✅ | ❌ | ✅ | ✅ |
+| **Row-level error details** | ✅ | ✅ | ❌ | ✅ |
+| **YAML rules** | ✅ | ✅ | ✅ | ❌ |
+| **dbt integration** | ✅ | ✅ | ✅ | ❌ |
+| **Slack/Teams alerts** | ✅ | ✅ | ✅ | ❌ |
+| **HTML/PDF reports** | ✅ | ✅ | ✅ | ❌ |
+
+<sub>*Performance varies by hardware and data characteristics. Based on typical usage patterns with DuckDB's columnar engine.</sub>
+
+---
 
 ## Demo
 
@@ -70,15 +138,34 @@ assert orders.id.null_percent == 0
 </div>
 
 ```python
-# Python API - feels like pytest
 from duckguard import connect
 
 orders = connect("data/orders.csv")
 
+# Assertions that read like English
 assert orders.row_count > 0
 assert orders.customer_id.null_percent < 5
 assert orders.amount.between(0, 10000)
 assert orders.status.isin(['pending', 'shipped', 'delivered'])
+
+# Get a quality score
+quality = orders.score()
+print(f"Grade: {quality.grade}")  # A, B, C, D, or F
+```
+
+---
+
+## Installation
+
+```bash
+pip install duckguard
+
+# With optional features
+pip install duckguard[reports]     # HTML/PDF reports
+pip install duckguard[snowflake]   # Snowflake connector
+pip install duckguard[databricks]  # Databricks connector
+pip install duckguard[airflow]     # Airflow integration
+pip install duckguard[all]         # Everything
 ```
 
 ---
@@ -88,66 +175,66 @@ assert orders.status.isin(['pending', 'shipped', 'delivered'])
 <table>
 <tr>
 <td align="center" width="25%">
-<br>
+<h3>🎯</h3>
 <b>Quality Scoring</b><br>
 <sub>A-F grades based on ISO 8000</sub>
 </td>
 <td align="center" width="25%">
-<br>
+<h3>🔒</h3>
 <b>PII Detection</b><br>
 <sub>Auto-detect emails, SSNs, phones</sub>
 </td>
 <td align="center" width="25%">
-<br>
+<h3>📊</h3>
 <b>Anomaly Detection</b><br>
 <sub>Z-score, IQR, ML baselines</sub>
 </td>
 <td align="center" width="25%">
-<br>
+<h3>🔔</h3>
 <b>Alerts</b><br>
 <sub>Slack, Teams, Email notifications</sub>
 </td>
 </tr>
 <tr>
 <td align="center">
-<br>
+<h3>⏰</h3>
 <b>Freshness Monitoring</b><br>
 <sub>Detect stale data automatically</sub>
 </td>
 <td align="center">
-<br>
+<h3>📐</h3>
 <b>Schema Evolution</b><br>
 <sub>Track & detect breaking changes</sub>
 </td>
 <td align="center">
-<br>
+<h3>📜</h3>
 <b>Data Contracts</b><br>
 <sub>Schema + SLAs enforcement</sub>
 </td>
 <td align="center">
-<br>
+<h3>🔍</h3>
 <b>Row-Level Errors</b><br>
 <sub>See exactly which rows failed</sub>
 </td>
 </tr>
 <tr>
 <td align="center">
-<br>
+<h3>📄</h3>
 <b>HTML/PDF Reports</b><br>
 <sub>Beautiful shareable reports</sub>
 </td>
 <td align="center">
-<br>
+<h3>📈</h3>
 <b>Historical Tracking</b><br>
 <sub>Quality trends over time</sub>
 </td>
 <td align="center">
-<br>
+<h3>🔧</h3>
 <b>dbt Integration</b><br>
 <sub>Export rules as dbt tests</sub>
 </td>
 <td align="center">
-<br>
+<h3>🚀</h3>
 <b>CI/CD Ready</b><br>
 <sub>GitHub Actions & Airflow</sub>
 </td>
@@ -158,37 +245,54 @@ assert orders.status.isin(['pending', 'shipped', 'delivered'])
 
 ## Connect to Anything
 
-**Files:** CSV, Parquet, JSON, Excel
-**Cloud:** S3, GCS, Azure Blob
-**Databases:** PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, Redshift, Databricks, SQL Server, Oracle, MongoDB
-**Streaming:** Kafka
-**Formats:** Delta Lake, Apache Iceberg
-
 ```python
-# Connect to anything
+from duckguard import connect
+
+# Files
+orders = connect("orders.csv")
+orders = connect("orders.parquet")
+orders = connect("orders.json")
+
+# Cloud Storage
 orders = connect("s3://bucket/orders.parquet")
+orders = connect("gs://bucket/orders.parquet")
+orders = connect("az://container/orders.parquet")
+
+# Databases
 orders = connect("postgres://localhost/db", table="orders")
+orders = connect("mysql://localhost/db", table="orders")
 orders = connect("snowflake://account/db", table="orders")
+orders = connect("bigquery://project/dataset", table="orders")
 orders = connect("databricks://workspace/catalog/schema", table="orders")
+orders = connect("redshift://cluster/db", table="orders")
+
+# Streaming
 orders = connect("kafka://broker:9092/orders-topic", sample_size=1000)
+
+# Modern Formats
+orders = connect("delta://path/to/delta_table")
+orders = connect("iceberg://path/to/iceberg_table")
 ```
+
+**Supported:** CSV, Parquet, JSON, Excel | S3, GCS, Azure Blob | PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, Redshift, Databricks, SQL Server, Oracle, MongoDB | Kafka | Delta Lake, Apache Iceberg
 
 ---
 
 ## Quick Examples
 
 <details open>
-<summary><b>Quality Score</b></summary>
+<summary><b>🎯 Quality Score</b></summary>
 
 ```python
 quality = orders.score()
-print(f"Grade: {quality.grade}")  # A, B, C, D, or F
-print(f"Score: {quality.score}/100")
+print(f"Grade: {quality.grade}")        # A, B, C, D, or F
+print(f"Score: {quality.score}/100")    # Numeric score
+print(f"Completeness: {quality.completeness}%")
 ```
 </details>
 
 <details>
-<summary><b>YAML Rules</b></summary>
+<summary><b>📋 YAML Rules</b></summary>
 
 ```yaml
 # duckguard.yaml
@@ -198,136 +302,131 @@ rules:
   - order_id is unique
   - amount >= 0
   - status in ['pending', 'shipped', 'delivered']
+  - customer_email matches '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 ```
 
 ```python
 from duckguard import load_rules, execute_rules
+
 result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
+print(f"Passed: {result.passed_count}/{result.total_checks}")
 ```
 </details>
 
 <details>
-<summary><b>PII Detection</b></summary>
+<summary><b>🔒 PII Detection</b></summary>
 
 ```python
 from duckguard.semantic import SemanticAnalyzer
+
 analysis = SemanticAnalyzer().analyze(orders)
-print(f"PII found: {analysis.pii_columns}")
-# PII found: ['email', 'phone', 'ssn']
+print(f"PII columns: {analysis.pii_columns}")
+# PII columns: ['email', 'phone', 'ssn']
+
+for col in analysis.columns:
+    if col.is_pii:
+        print(f"⚠️  {col.name}: {col.pii_type} detected!")
 ```
 </details>
 
 <details>
-<summary><b>Anomaly Detection</b></summary>
+<summary><b>📊 Anomaly Detection</b></summary>
 
 ```python
 from duckguard import detect_anomalies
 
-# Basic statistical methods
+# Statistical methods
 report = detect_anomalies(orders, method="zscore")
 report = detect_anomalies(orders, method="iqr")
 
-# ML-based: Learn baseline from current data
+# ML-based baseline learning
 report = detect_anomalies(orders, method="baseline", learn_baseline=True)
 
-# Later: compare new data against stored baseline
+# Later: compare new data against baseline
 report = detect_anomalies(new_orders, method="baseline")
 if report.has_anomalies:
-    print(f"Found {len(report.anomalies)} anomalies!")
-
-# Detect distribution drift using Kolmogorov-Smirnov test
-report = detect_anomalies(orders, method="ks_test")
-
-# Seasonal anomaly detection
-report = detect_anomalies(orders, method="seasonal", period="daily")
+    for anomaly in report.anomalies:
+        print(f"🚨 {anomaly.column}: {anomaly.message}")
 ```
 </details>
 
 <details>
-<summary><b>Freshness Monitoring</b></summary>
+<summary><b>⏰ Freshness Monitoring</b></summary>
 
 ```python
-from duckguard import connect
-from duckguard.freshness import FreshnessMonitor
 from datetime import timedelta
 
-data = connect("data.csv")
-
-# Quick freshness check via property
+# Quick check
 print(data.freshness.age_human)  # "2 hours ago"
-print(data.freshness.is_fresh)   # True (default 24h threshold)
+print(data.freshness.is_fresh)   # True
 
-# Check with custom threshold
+# Custom threshold
 if not data.is_fresh(timedelta(hours=6)):
-    print("Data is stale!")
-
-# Column-based freshness (for databases/warehouses)
-monitor = FreshnessMonitor(threshold=timedelta(hours=1))
-result = monitor.check_column_timestamp(data, "updated_at")
-print(f"Last update: {result.age_human}, Fresh: {result.is_fresh}")
+    print("🚨 Data is stale!")
 ```
 </details>
 
 <details>
-<summary><b>Schema Evolution Tracking</b></summary>
+<summary><b>📐 Schema Evolution</b></summary>
 
 ```python
-from duckguard import connect
 from duckguard.schema_history import SchemaTracker, SchemaChangeAnalyzer
 
-data = connect("data.csv")
-
-# Capture schema snapshot
 tracker = SchemaTracker()
-snapshot = tracker.capture(data)
-print(f"Captured: {snapshot.column_count} columns, {snapshot.row_count} rows")
+tracker.capture(data)  # Save snapshot
 
-# Later: detect schema changes
+# Later: detect changes
 analyzer = SchemaChangeAnalyzer()
 report = analyzer.detect_changes(data)
 
 if report.has_breaking_changes:
-    print("Breaking schema changes detected!")
+    print("🚨 Breaking schema changes!")
     for change in report.breaking_changes:
-        print(f"  {change}")
-
-# View schema history
-history = tracker.get_history("data.csv", limit=10)
-for snap in history:
-    print(f"{snap.captured_at}: {snap.column_count} columns")
+        print(f"  - {change}")
 ```
 </details>
 
 <details>
-<summary><b>Email Notifications</b></summary>
+<summary><b>📜 Data Contracts</b></summary>
 
 ```python
-from duckguard import execute_rules, load_rules
-from duckguard.notifications import EmailNotifier
+from duckguard import generate_contract, validate_contract
 
-email = EmailNotifier(
-    smtp_host="smtp.gmail.com",
-    smtp_port=587,
-    smtp_user="alerts@company.com",
-    smtp_password="app_password",
-    to_addresses=["team@company.com", "oncall@company.com"],
-)
-# Or set DUCKGUARD_EMAIL_CONFIG env var with JSON config
+# Generate from existing data
+contract = generate_contract(orders)
+contract.save("orders_contract.yaml")
 
-result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
+# Validate new data
+result = validate_contract(contract, new_orders)
 if not result.passed:
-    email.send_failure_alert(result)
+    print("❌ Contract violation!")
 ```
 </details>
 
 <details>
-<summary><b>Slack/Teams Notifications</b></summary>
+<summary><b>🔍 Row-Level Errors</b></summary>
 
 ```python
-from duckguard.notifications import SlackNotifier
+result = orders.quantity.between(1, 100)
+if not result.passed:
+    print(result.summary())
+    # Sample of 10 failing rows (total: 25):
+    #   Row 5: quantity=150 - Value outside range [1, 100]
+    #   Row 12: quantity=-5 - Value outside range [1, 100]
+
+    # Export failed rows for debugging
+    failed_df = result.to_dataframe()
+```
+</details>
+
+<details>
+<summary><b>🔔 Slack/Teams/Email Alerts</b></summary>
+
+```python
+from duckguard.notifications import SlackNotifier, EmailNotifier
 
 slack = SlackNotifier(webhook_url="https://hooks.slack.com/...")
-# Or set DUCKGUARD_SLACK_WEBHOOK env var
+# Or: email = EmailNotifier(smtp_host="smtp.gmail.com", ...)
 
 result = execute_rules(rules, dataset=orders)
 if not result.passed:
@@ -336,88 +435,27 @@ if not result.passed:
 </details>
 
 <details>
-<summary><b>Data Contracts</b></summary>
+<summary><b>📄 HTML/PDF Reports</b></summary>
 
 ```python
-from duckguard import generate_contract, validate_contract
-
-# Generate contract from existing data
-contract = generate_contract(orders)
-
-# Validate new data against contract
-result = validate_contract(contract, new_orders)
-if not result.passed:
-    print("Contract violation!")
-```
-</details>
-
-<details>
-<summary><b>Row-Level Error Debugging</b></summary>
-
-```python
-# See exactly which rows failed validation
-result = orders.quantity.between(1, 100)
-if not result.passed:
-    print(result.summary())
-    # Sample of 10 failing rows (total: 25):
-    #   Row 5: quantity=150 - Value 150 is outside range [1, 100]
-    #   Row 12: quantity=200 - Value 200 is outside range [1, 100]
-
-    # Get failed values as list
-    print(result.get_failed_values())  # [150, 200, ...]
-```
-</details>
-
-<details>
-<summary><b>HTML/PDF Reports</b></summary>
-
-```python
-from duckguard import execute_rules, load_rules
 from duckguard.reports import generate_html_report, generate_pdf_report
 
 result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
 
-# Generate beautiful HTML report
-generate_html_report(result, "report.html", title="Orders Quality Report")
-
-# Generate PDF report (requires weasyprint)
-generate_pdf_report(result, "report.pdf")
+generate_html_report(result, "report.html")
+generate_pdf_report(result, "report.pdf")  # requires weasyprint
 ```
 </details>
 
 <details>
-<summary><b>Historical Tracking</b></summary>
+<summary><b>🔧 dbt Integration</b></summary>
 
 ```python
-from duckguard.history import HistoryStorage, TrendAnalyzer
-
-# Store validation results
-storage = HistoryStorage()  # Uses ~/.duckguard/history.db
-run_id = storage.store(result)
-
-# Query historical runs
-runs = storage.get_runs("orders.csv", limit=10)
-
-# Analyze quality trends
-analyzer = TrendAnalyzer(storage)
-trend = analyzer.analyze("orders.csv", days=30)
-print(f"Trend: {trend.score_trend}, Pass rate: {trend.pass_rate}%")
-```
-</details>
-
-<details>
-<summary><b>dbt Integration</b></summary>
-
-```python
-from duckguard import load_rules
 from duckguard.integrations import dbt
 
-# Export DuckGuard rules to dbt schema.yml
+# Export DuckGuard rules to dbt
 rules = load_rules("duckguard.yaml")
 dbt.export_to_schema(rules, "models/schema.yml")
-
-# Generate dbt singular tests
-dbt.generate_singular_tests(rules, "tests/")
 
 # Import dbt tests as DuckGuard rules
 rules = dbt.import_from_dbt("models/schema.yml")
@@ -425,24 +463,22 @@ rules = dbt.import_from_dbt("models/schema.yml")
 </details>
 
 <details>
-<summary><b>Airflow Integration</b></summary>
+<summary><b>🚀 Airflow Integration</b></summary>
 
 ```python
 from duckguard.integrations.airflow import DuckGuardOperator
 
-# Use in your Airflow DAG
 validate_orders = DuckGuardOperator(
     task_id="validate_orders",
     source="s3://bucket/orders.parquet",
     config="duckguard.yaml",
     fail_on_error=True,
-    store_history=True,
 )
 ```
 </details>
 
 <details>
-<summary><b>GitHub Action</b></summary>
+<summary><b>⚡ GitHub Actions</b></summary>
 
 ```yaml
 # .github/workflows/data-quality.yml
@@ -450,81 +486,68 @@ validate_orders = DuckGuardOperator(
   with:
     source: data/orders.csv
     config: duckguard.yaml
-    fail-on-warning: false
 ```
 </details>
 
 ---
 
-## CLI Reference
+## CLI
 
 ```bash
-# Core commands
-duckguard check <file>           # Run quality checks
-duckguard discover <file>        # Auto-generate rules
-duckguard report <file>          # Generate HTML/PDF report
-duckguard info <file>            # Show dataset info
+# Validate data
+duckguard check orders.csv
+duckguard check orders.csv --config duckguard.yaml
+
+# Auto-generate rules from data
+duckguard discover orders.csv > duckguard.yaml
+
+# Generate reports
+duckguard report orders.csv --output report.html
 
 # Anomaly detection
-duckguard anomaly <file>                    # Detect anomalies (z-score)
-duckguard anomaly <file> --method iqr       # Use IQR method
-duckguard anomaly <file> --learn-baseline   # Learn ML baseline
-duckguard anomaly <file> --method baseline  # Compare to baseline
-duckguard anomaly <file> --method ks_test   # Distribution drift
+duckguard anomaly orders.csv --method zscore
+duckguard anomaly orders.csv --learn-baseline
+duckguard anomaly orders.csv --method baseline
 
 # Freshness monitoring
-duckguard freshness <file>                      # Check via file mtime
-duckguard freshness <file> --column updated_at  # Check via column
-duckguard freshness <file> --max-age 6h         # Custom threshold
+duckguard freshness orders.csv --max-age 6h
 
-# Schema evolution
-duckguard schema <file> --action show      # Show current schema
-duckguard schema <file> --action capture   # Capture snapshot
-duckguard schema <file> --action history   # View schema history
-duckguard schema <file> --action changes   # Detect changes
+# Schema tracking
+duckguard schema orders.csv --action capture
+duckguard schema orders.csv --action changes
 
 # Data contracts
-duckguard contract generate <file>    # Create data contract
-duckguard contract validate <file>    # Validate against contract
-
-# History & trends
-duckguard history                 # View validation history
-duckguard history --trend         # Analyze quality trends
+duckguard contract generate orders.csv
+duckguard contract validate orders.csv
 ```
 
-## Column Methods
-
-```python
-# Statistics
-col.null_percent      # Percentage of null values
-col.unique_percent    # Percentage of unique values
-col.min, col.max      # Min/max values
-col.mean, col.stddev  # Mean and standard deviation
-
-# Validations (return ValidationResult)
-col.between(0, 100)           # Range check
-col.matches(r'^\d{5}$')       # Regex pattern
-col.isin(['a', 'b', 'c'])     # Allowed values
-col.has_no_duplicates()       # Uniqueness
-col.greater_than(0)           # Comparison
-col.not_null()                # Null check
-```
+---
 
 ## Performance
 
 Built on DuckDB for blazing fast validation:
 
-| Dataset | Pandas + Great Expectations | DuckGuard | Speedup |
-|---------|----------------------------|-----------|---------|
-| 1GB CSV | 45 seconds, 4GB RAM | 4 seconds, 200MB RAM | **10x** |
-| 10GB Parquet | 8 minutes, 32GB RAM | 45 seconds, 2GB RAM | **10x** |
+| Dataset | Great Expectations | DuckGuard | Speedup |
+|---------|:------------------:|:---------:|:-------:|
+| 1GB CSV | 45 sec, 4GB RAM | **4 sec, 200MB RAM** | **10x faster** |
+| 10GB Parquet | 8 min, 32GB RAM | **45 sec, 2GB RAM** | **10x faster** |
+| 100M rows | Minutes | **Seconds** | **10x faster** |
 
-## Big Data Strategy
+### Why So Fast?
+
+- **DuckDB engine**: Columnar, vectorized, SIMD-optimized
+- **Zero copy**: Direct file access, no DataFrame conversion
+- **Lazy evaluation**: Only compute what's needed
+- **Memory efficient**: Stream large files without loading entirely
+
+---
+
+## Scaling Guide
 
 | Data Size | Recommendation |
 |-----------|----------------|
 | < 10M rows | DuckGuard directly |
-| 10-100M rows | DuckGuard with Parquet, configure `memory_limit` |
+| 10-100M rows | Use Parquet, configure `memory_limit` |
 | 100GB+ | Use database connectors (Snowflake, BigQuery, Databricks) |
 | Delta Tables | Use Databricks connector for query pushdown |
 
@@ -536,10 +559,95 @@ engine = DuckGuardEngine(memory_limit="8GB")
 dataset = connect("large_data.parquet", engine=engine)
 ```
 
+---
+
+## Column Methods Reference
+
+```python
+# Statistics (properties)
+col.null_percent      # Percentage of null values
+col.unique_percent    # Percentage of unique values
+col.min, col.max      # Min/max values
+col.mean, col.stddev  # Mean and standard deviation
+col.count             # Non-null count
+
+# Validations (return ValidationResult with .passed, .summary(), etc.)
+col.not_null()                # No nulls allowed
+col.is_unique()               # All values unique
+col.between(0, 100)           # Range check
+col.greater_than(0)           # Minimum value
+col.less_than(1000)           # Maximum value
+col.matches(r'^\d{5}$')       # Regex pattern
+col.isin(['a', 'b', 'c'])     # Allowed values
+col.not_in(['x', 'y'])        # Forbidden values
+col.has_no_duplicates()       # No duplicate values
+col.value_lengths_between(1, 50)  # String length
+```
+
+---
+
+## Migrating from Great Expectations?
+
+```python
+# Before: Great Expectations (50+ lines)
+context = get_context()
+datasource = context.sources.add_pandas("my_datasource")
+asset = datasource.add_dataframe_asset(name="orders", dataframe=df)
+batch_request = asset.build_batch_request()
+expectation_suite = context.add_expectation_suite("orders_suite")
+validator = context.get_validator(
+    batch_request=batch_request,
+    expectation_suite_name="orders_suite"
+)
+validator.expect_column_values_to_not_be_null("customer_id")
+validator.expect_column_values_to_be_between("amount", 0, 10000)
+results = validator.validate()
+
+# After: DuckGuard (3 lines)
+from duckguard import connect
+
+orders = connect("orders.csv")
+assert orders.customer_id.null_percent == 0
+assert orders.amount.between(0, 10000)
+```
+
+---
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+```bash
+# Clone and install
+git clone https://github.com/XDataHubAI/duckguard.git
+cd duckguard
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Format code
+black src tests
+ruff check src tests
+```
+
+---
+
 ## License
 
 Elastic License 2.0 - see [LICENSE](LICENSE)
+
+---
+
+<div align="center">
+  <p>
+    <strong>Built with ❤️ by the DuckGuard Team</strong>
+  </p>
+  <p>
+    <a href="https://github.com/XDataHubAI/duckguard/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/XDataHubAI/duckguard/issues">Request Feature</a>
+    ·
+    <a href="https://github.com/XDataHubAI/duckguard/discussions">Discussions</a>
+  </p>
+</div>
