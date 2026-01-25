@@ -13,7 +13,7 @@ class TestAutoProfiler:
         profiler = AutoProfiler()
         result = profiler.profile(orders_dataset)
 
-        assert result.row_count == 20
+        assert result.row_count == 25  # Updated: sample data has 25 rows
         assert result.column_count == 9
         assert len(result.columns) == 9
 
@@ -64,7 +64,7 @@ class TestAutoProfiler:
     def test_profile_convenience_function(self, orders_dataset):
         """Test the profile() convenience function."""
         result = profile(orders_dataset)
-        assert result.row_count == 20
+        assert result.row_count == 25  # Updated: sample data has 25 rows
 
 
 class TestPatternDetection:

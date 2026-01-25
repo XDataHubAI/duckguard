@@ -48,7 +48,7 @@ class TestConnect:
         """Test connecting to CSV file."""
         dataset = connect(orders_csv)
         assert dataset is not None
-        assert dataset.row_count == 20
+        assert dataset.row_count == 25  # Updated: sample data has 25 rows
 
     def test_connect_nonexistent_file(self):
         """Test connecting to non-existent file raises error."""
