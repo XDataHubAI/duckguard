@@ -3,8 +3,14 @@
 Data quality that just works. Python-native, DuckDB-powered, 10x faster.
 
 [![PyPI version](https://img.shields.io/pypi/v/duckguard.svg)](https://pypi.org/project/duckguard/)
+[![Downloads](https://static.pepy.tech/badge/duckguard)](https://pepy.tech/project/duckguard)
+[![GitHub stars](https://img.shields.io/github/stars/XDataHubAI/duckguard?style=social)](https://github.com/XDataHubAI/duckguard/stargazers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](https://www.elastic.co/licensing/elastic-license)
+[![CI](https://github.com/XDataHubAI/duckguard/actions/workflows/ci.yml/badge.svg)](https://github.com/XDataHubAI/duckguard/actions/workflows/ci.yml)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/XDataHubAI/duckguard/blob/main/examples/getting_started.ipynb)
+[![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://github.com/XDataHubAI/duckguard/blob/main/examples/getting_started.ipynb)
 
 ```bash
 pip install duckguard
@@ -132,6 +138,10 @@ Built on DuckDB for speed:
 | | Pandas/GX | DuckGuard |
 |---|---|---|
 | 1GB CSV | 45s, 4GB RAM | 4s, 200MB RAM |
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
