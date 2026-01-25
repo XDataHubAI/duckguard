@@ -1,0 +1,26 @@
+order_id,customer_id,product_name,quantity,unit_price,total_amount,status,email,created_at
+ORD-001,CUST-001,Widget A,2,29.99,59.98,delivered,john@example.com,2024-01-15
+ORD-002,CUST-002,Widget B,1,49.99,49.99,shipped,jane@example.com,2024-01-16
+ORD-003,CUST-001,Gadget X,3,19.99,59.97,delivered,john@example.com,2024-01-17
+ORD-004,CUST-003,Widget A,5,29.99,149.95,pending,bob@example.com,2024-01-18
+ORD-005,CUST-004,Gadget Y,2,39.99,79.98,shipped,alice@example.com,2024-01-19
+ORD-006,CUST-002,Widget C,1,59.99,59.99,delivered,jane@example.com,2024-01-20
+ORD-007,CUST-005,Gadget X,4,19.99,79.96,pending,charlie@example.com,2024-01-21
+ORD-008,CUST-001,Widget B,2,49.99,99.98,delivered,john@example.com,2024-01-22
+ORD-009,CUST-006,Gadget Z,1,99.99,99.99,shipped,diana@example.com,2024-01-23
+ORD-010,CUST-003,Widget A,3,29.99,89.97,delivered,bob@example.com,2024-01-24
+ORD-011,CUST-007,Widget D,2,34.99,69.98,pending,eve@example.com,2024-01-25
+ORD-012,CUST-004,Gadget X,1,19.99,19.99,delivered,alice@example.com,2024-01-26
+ORD-013,CUST-008,Widget B,3,49.99,149.97,shipped,frank@example.com,2024-01-27
+ORD-014,CUST-002,Gadget Y,2,39.99,79.98,delivered,jane@example.com,2024-01-28
+ORD-015,CUST-009,Widget A,4,29.99,119.96,pending,grace@example.com,2024-01-29
+ORD-016,CUST-005,Widget C,1,59.99,59.99,cancelled,charlie@example.com,2024-01-30
+ORD-017,CUST-010,Gadget Z,2,99.99,199.98,shipped,henry@example.com,2024-01-31
+ORD-018,CUST-001,Widget D,3,34.99,104.97,delivered,john@example.com,2024-02-01
+ORD-019,CUST-011,Gadget X,5,19.99,99.95,pending,ivy@example.com,2024-02-02
+ORD-020,CUST-006,Widget B,1,49.99,49.99,delivered,diana@example.com,2024-02-03
+ORD-021,,Widget A,2,29.99,59.98,shipped,,2024-02-04
+ORD-022,CUST-012,Gadget Y,50,39.99,1999.50,delivered,kim@example.com,2024-02-05
+ORD-023,CUST-013,Widget B,1,499.99,499.99,pending,leo@example.com,2024-02-06
+ORD-024,CUST-014,Gadget X,100,19.99,1999.00,cancelled,mike@example.com,2024-02-07
+ORD-025,CUST-015,Widget C,1,59.99,59.99,delivered,nancy@example.com,2024-02-08

@@ -1,0 +1,22 @@
+dataset: orders
+description: Data quality rules for orders dataset
+
+rules:
+  # Table-level rules
+  - row_count > 0
+  - row_count < 1000000
+
+  # Column nulls (using thresholds since we have some test nulls)
+  - order_id is not null
+  - order_id is unique
+  - customer_id null_percent < 10
+  - email null_percent < 10
+
+  # Numeric ranges
+  - quantity >= 1
+  - quantity < 500
+  - unit_price >= 0
+  - total_amount >= 0
+
+  # Status enum
+  - status in ['pending', 'shipped', 'delivered', 'cancelled']

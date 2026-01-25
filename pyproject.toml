@@ -1,0 +1,116 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "duckguard"
+version = "2.0.0"
+description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
+readme = "README.md"
+license = "Elastic-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "DuckGuard Team" }
+]
+keywords = [
+    "data-quality",
+    "data-validation",
+    "duckdb",
+    "testing",
+    "data-engineering",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Database",
+]
+
+dependencies = [
+    "duckdb>=1.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pyarrow>=14.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0",
+    "packaging>=21.0",
+]
+
+[project.optional-dependencies]
+# Database connectors
+postgres = ["psycopg2-binary>=2.9.0"]
+mysql = ["pymysql>=1.0.0"]
+snowflake = ["snowflake-connector-python>=3.0.0"]
+bigquery = ["google-cloud-bigquery>=3.0.0"]
+redshift = ["redshift-connector>=2.0.0"]
+sqlserver = ["pyodbc>=4.0.0"]
+databricks = ["databricks-sql-connector>=2.0.0"]
+oracle = ["oracledb>=1.0.0"]
+mongodb = ["pymongo>=4.0.0"]
+kafka = ["kafka-python>=2.0.0"]
+# Note: SQLite is built into DuckDB, no extra dependency needed
+
+# AI/LLM features
+llm = ["openai>=1.0.0", "anthropic>=0.18.0"]
+
+# All database connectors
+databases = [
+    "duckguard[postgres,mysql,snowflake,bigquery,redshift,sqlserver,databricks,oracle,mongodb,kafka]"
+]
+
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+# Everything
+all = ["duckguard[databases,llm]"]
+
+[project.scripts]
+duckguard = "duckguard.cli.main:app"
+
+[project.entry-points.pytest11]
+duckguard = "duckguard.pytest_plugin.plugin"
+
+[project.urls]
+Homepage = "https://github.com/XDataHubAI/duckguard"
+Documentation = "https://github.com/XDataHubAI/duckguard"
+Repository = "https://github.com/XDataHubAI/duckguard"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/duckguard"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/examples",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
