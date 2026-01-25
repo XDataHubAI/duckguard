@@ -22,23 +22,23 @@ except ImportError:
 
 # === DESIGN CONSTANTS ===
 
-WIDTH = 780
-HEIGHT = 500
+WIDTH = 800
+HEIGHT = 520
 PADDING_X = 20
 PADDING_Y = 14
-LINE_HEIGHT = 22
-FONT_SIZE = 15
-HEADER_HEIGHT = 36
+LINE_HEIGHT = 24
+FONT_SIZE = 16
+HEADER_HEIGHT = 38
 
-# Colors - Matching the screenshot exactly
+# Colors - Pure black background like the original
 COLORS = {
-    'bg': (30, 30, 40),           # Dark charcoal background (like screenshot)
-    'header_bg': (55, 55, 65),    # Lighter gray header bar
+    'bg': (0, 0, 0),              # Pure black background
+    'header_bg': (40, 40, 40),    # Dark gray header bar
     'fg': (255, 255, 255),        # Pure white text
-    'dim': (180, 180, 180),       # Light gray for secondary text
+    'dim': (150, 150, 150),       # Gray for secondary text
     'cyan': (0, 255, 136),        # Bright green for $ prompt
     'green': (0, 255, 136),       # Bright green for success
-    'red': (255, 95, 135),        # Bright red/pink for errors
+    'red': (255, 85, 85),         # Bright red for errors
     'yellow': (255, 170, 0),      # Bright orange for WARNING
     'magenta': (255, 85, 255),    # Bright magenta
     'blue': (0, 175, 215),        # Teal/cyan blue for DuckGuard
@@ -54,16 +54,34 @@ PAUSE_LONG = 100      # ~5 sec
 
 
 def get_font(size: int = FONT_SIZE) -> ImageFont.FreeTypeFont:
-    """Get a good monospace font."""
+    """Get a good monospace font with Windows paths."""
+    import os
+
+    # Try Windows font paths first for better quality
+    windows_fonts = [
+        r"C:\Windows\Fonts\consola.ttf",      # Consolas
+        r"C:\Windows\Fonts\cascadiamono.ttf", # Cascadia Mono
+        r"C:\Windows\Fonts\cour.ttf",         # Courier New
+        r"C:\Windows\Fonts\lucon.ttf",        # Lucida Console
+    ]
+
+    for font_path in windows_fonts:
+        if os.path.exists(font_path):
+            try:
+                return ImageFont.truetype(font_path, size)
+            except (IOError, OSError):
+                continue
+
+    # Fallback to font names
     font_names = [
-        'Consolas', 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono',
-        'Fira Code', 'Source Code Pro', 'DejaVu Sans Mono', 'Courier New',
+        'Consolas', 'Cascadia Code', 'Courier New', 'Lucida Console',
     ]
     for font_name in font_names:
         try:
             return ImageFont.truetype(font_name, size)
         except (IOError, OSError):
             continue
+
     return ImageFont.load_default()
 
 
@@ -100,10 +118,11 @@ class TerminalRenderer:
 
     def draw_text_segment(self, draw: ImageDraw.Draw, x: int, y: int,
                           text: str, color: str = 'fg') -> int:
+        """Draw text and return next x position using fixed char width."""
         fill = COLORS.get(color, COLORS['fg'])
         draw.text((x, y), text, fill=fill, font=self.font)
-        bbox = draw.textbbox((x, y), text, font=self.font)
-        return bbox[2]
+        # Use fixed character width for proper monospace alignment
+        return x + (len(text) * self.char_width)
 
     def draw_cursor(self, draw: ImageDraw.Draw, x: int, y: int, visible: bool = True):
         if visible:
@@ -609,8 +628,8 @@ def main():
     print("Converting to optimized palette...")
     palette_frames = []
     for frame in frames:
-        # Use 64 colors with MAXCOVERAGE to preserve dark charcoal background
-        p_frame = frame.quantize(colors=64, method=Image.Quantize.MAXCOVERAGE)
+        # Use 256 colors (max for GIF) with MEDIANCUT for best quality
+        p_frame = frame.quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
         palette_frames.append(p_frame)
 
     print(f"\nSaving GIF to {output_path}...")
@@ -620,7 +639,7 @@ def main():
         append_images=palette_frames[1:],
         duration=durations,
         loop=0,
-        optimize=True,
+        optimize=False,  # Don't optimize - preserves quality
     )
 
     file_size = output_path.stat().st_size
