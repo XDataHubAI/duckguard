@@ -10,15 +10,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from duckguard.core.dataset import Dataset
 from duckguard.anomaly.methods import (
-    AnomalyMethod,
     AnomalyScore,
-    ZScoreMethod,
-    IQRMethod,
-    PercentChangeMethod,
     create_method,
 )
+from duckguard.core.dataset import Dataset
 
 
 class AnomalyType(Enum):

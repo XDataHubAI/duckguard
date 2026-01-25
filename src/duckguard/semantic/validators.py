@@ -6,8 +6,9 @@ Provides validation functions specific to each semantic type.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from duckguard.semantic.detector import SemanticType
 

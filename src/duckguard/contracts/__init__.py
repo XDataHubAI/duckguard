@@ -14,17 +14,17 @@ Example:
         print(f"Contract violations: {result.violations}")
 """
 
+from duckguard.contracts.diff import SchemaDiff, diff_contracts
+from duckguard.contracts.generator import generate_contract
+from duckguard.contracts.loader import contract_to_yaml, load_contract, load_contract_from_string
 from duckguard.contracts.schema import (
+    ContractMetadata,
     DataContract,
-    SchemaField,
     FieldType,
     QualitySLA,
-    ContractMetadata,
+    SchemaField,
 )
-from duckguard.contracts.loader import load_contract, load_contract_from_string, contract_to_yaml
-from duckguard.contracts.validator import validate_contract, ContractValidationResult
-from duckguard.contracts.generator import generate_contract
-from duckguard.contracts.diff import diff_contracts, SchemaDiff
+from duckguard.contracts.validator import ContractValidationResult, validate_contract
 
 __all__ = [
     # Schema

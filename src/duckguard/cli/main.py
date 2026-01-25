@@ -5,21 +5,14 @@ A modern, beautiful CLI for data quality that just works.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
-from rich.syntax import Syntax
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich import print as rprint
-from rich.tree import Tree
-from rich.text import Text
-from rich.columns import Columns
-from rich.markdown import Markdown
+from rich.syntax import Syntax
+from rich.table import Table
 
 from duckguard import __version__
 
@@ -45,7 +38,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -61,11 +54,11 @@ def main(
 @app.command()
 def check(
     source: str = typer.Argument(..., help="Path to file or connection string"),
-    config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to duckguard.yaml rules file"),
-    table: Optional[str] = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
-    not_null: Optional[list[str]] = typer.Option(None, "--not-null", "-n", help="Columns that must not be null"),
-    unique: Optional[list[str]] = typer.Option(None, "--unique", "-u", help="Columns that must be unique"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (json)"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Path to duckguard.yaml rules file"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
+    not_null: list[str] | None = typer.Option(None, "--not-null", "-n", help="Columns that must not be null"),
+    unique: list[str] | None = typer.Option(None, "--unique", "-u", help="Columns that must be unique"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (json)"),
     verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
 ) -> None:
     """
@@ -78,8 +71,8 @@ def check(
         duckguard check postgres://localhost/db --table orders
     """
     from duckguard.connectors import connect
-    from duckguard.rules import load_rules, execute_rules
     from duckguard.core.scoring import score
+    from duckguard.rules import execute_rules, load_rules
 
     console.print(f"\n[bold blue]DuckGuard[/bold blue] Checking: [cyan]{source}[/cyan]\n")
 
@@ -185,8 +178,8 @@ def check(
 @app.command()
 def discover(
     source: str = typer.Argument(..., help="Path to file or connection string"),
-    table: Optional[str] = typer.Option(None, "--table", "-t", help="Table name"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file for rules (duckguard.yaml)"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file for rules (duckguard.yaml)"),
     format: str = typer.Option("yaml", "--format", "-f", help="Output format: yaml, python"),
 ) -> None:
     """
@@ -213,7 +206,7 @@ def discover(
             console=console,
             transient=True,
         ) as progress:
-            task = progress.add_task("Analyzing data...", total=None)
+            _task = progress.add_task("Analyzing data...", total=None)  # noqa: F841
             dataset = connect(source, table=table)
 
             # Semantic analysis
@@ -250,8 +243,8 @@ def discover(
 def contract(
     action: str = typer.Argument(..., help="Action: generate, validate, diff"),
     source: str = typer.Argument(None, help="Data source or contract file"),
-    contract_file: Optional[str] = typer.Option(None, "--contract", "-c", help="Contract file path"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file"),
+    contract_file: str | None = typer.Option(None, "--contract", "-c", help="Contract file path"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file"),
     strict: bool = typer.Option(False, "--strict", help="Strict validation mode"),
 ) -> None:
     """
@@ -268,13 +261,12 @@ def contract(
         duckguard contract diff old.contract.yaml new.contract.yaml
     """
     from duckguard.contracts import (
+        diff_contracts,
+        generate_contract,
         load_contract,
         validate_contract,
-        generate_contract,
-        diff_contracts,
     )
     from duckguard.contracts.loader import contract_to_yaml
-    from duckguard.connectors import connect
 
     try:
         if action == "generate":
@@ -305,7 +297,7 @@ def contract(
                 console.print("[red]Error:[/red] Both source and --contract required for validate")
                 raise typer.Exit(1)
 
-            console.print(f"\n[bold blue]DuckGuard[/bold blue] Validating against contract\n")
+            console.print("\n[bold blue]DuckGuard[/bold blue] Validating against contract\n")
 
             with Progress(
                 SpinnerColumn(),
@@ -345,10 +337,10 @@ def contract(
 @app.command()
 def anomaly(
     source: str = typer.Argument(..., help="Path to file or connection string"),
-    table: Optional[str] = typer.Option(None, "--table", "-t", help="Table name"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
     method: str = typer.Option("zscore", "--method", "-m", help="Detection method: zscore, iqr, percent_change"),
-    threshold: Optional[float] = typer.Option(None, "--threshold", help="Detection threshold"),
-    columns: Optional[list[str]] = typer.Option(None, "--column", "-c", help="Specific columns to check"),
+    threshold: float | None = typer.Option(None, "--threshold", help="Detection threshold"),
+    columns: list[str] | None = typer.Option(None, "--column", "-c", help="Specific columns to check"),
 ) -> None:
     """
     Detect anomalies in data.
@@ -358,8 +350,8 @@ def anomaly(
         duckguard anomaly data.csv --method iqr --threshold 2.0
         duckguard anomaly data.csv --column amount --column quantity
     """
-    from duckguard.connectors import connect
     from duckguard.anomaly import detect_anomalies
+    from duckguard.connectors import connect
 
     console.print(f"\n[bold blue]DuckGuard[/bold blue] Detecting anomalies in: [cyan]{source}[/cyan]\n")
 
@@ -392,7 +384,7 @@ def anomaly(
 @app.command()
 def info(
     source: str = typer.Argument(..., help="Path to file or connection string"),
-    table: Optional[str] = typer.Option(None, "--table", "-t", help="Table name"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
 ) -> None:
     """
     Display information about a data source.
@@ -627,7 +619,7 @@ def _display_contract_validation(result) -> None:
 
 def _display_contract_diff(diff) -> None:
     """Display contract diff."""
-    console.print(f"[bold]Comparing contracts[/bold]")
+    console.print("[bold]Comparing contracts[/bold]")
     console.print(f"  Old: v{diff.old_contract.version}")
     console.print(f"  New: v{diff.new_contract.version}\n")
 

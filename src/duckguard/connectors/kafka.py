@@ -6,7 +6,7 @@ import json
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from duckguard.connectors.base import Connector, ConnectionConfig
+from duckguard.connectors.base import ConnectionConfig, Connector
 from duckguard.core.dataset import Dataset
 from duckguard.core.engine import DuckGuardEngine
 
@@ -320,7 +320,7 @@ class KafkaStreamValidator:
             "messages_failed": 0,
         }
 
-    def add_rule(self, rule: callable) -> "KafkaStreamValidator":
+    def add_rule(self, rule: callable) -> KafkaStreamValidator:
         """Add a validation rule."""
         self.rules.append(rule)
         return self

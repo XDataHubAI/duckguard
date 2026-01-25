@@ -47,12 +47,12 @@ from typing import Any
 import yaml
 
 from duckguard.contracts.schema import (
-    DataContract,
-    SchemaField,
-    FieldType,
-    FieldConstraint,
-    QualitySLA,
     ContractMetadata,
+    DataContract,
+    FieldConstraint,
+    FieldType,
+    QualitySLA,
+    SchemaField,
 )
 
 
@@ -82,7 +82,7 @@ def load_contract(path: str | Path) -> DataContract:
     if not path.exists():
         raise FileNotFoundError(f"Contract file not found: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
 
     return load_contract_from_string(content, source_file=str(path))

@@ -17,9 +17,9 @@ from duckguard.anomaly.detector import (
     detect_column_anomalies,
 )
 from duckguard.anomaly.methods import (
-    ZScoreMethod,
     IQRMethod,
     PercentChangeMethod,
+    ZScoreMethod,
 )
 
 __all__ = [

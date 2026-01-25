@@ -21,49 +21,48 @@ Documentation: https://github.com/duckguard/duckguard
 """
 
 # Core classes
-from duckguard.core.dataset import Dataset
-from duckguard.core.column import Column
-from duckguard.core.engine import DuckGuardEngine
-from duckguard.core.result import ValidationResult, CheckResult
-from duckguard.core.scoring import QualityScore, QualityScorer, score
-
-# Connectors
-from duckguard.connectors import connect
-
-# Profiling
-from duckguard.profiler import profile, AutoProfiler
-
-# Rules (YAML-based)
-from duckguard.rules import (
-    load_rules,
-    load_rules_from_string,
-    execute_rules,
-    generate_rules,
-    RuleSet,
-)
-
-# Semantic type detection
-from duckguard.semantic import (
-    SemanticType,
-    SemanticAnalyzer,
-    detect_type,
-    detect_types_for_dataset,
-)
-
-# Data contracts
-from duckguard.contracts import (
-    DataContract,
-    load_contract,
-    validate_contract,
-    generate_contract,
-    diff_contracts,
-)
-
 # Anomaly detection
 from duckguard.anomaly import (
     AnomalyDetector,
     AnomalyResult,
     detect_anomalies,
+)
+
+# Connectors
+from duckguard.connectors import connect
+
+# Data contracts
+from duckguard.contracts import (
+    DataContract,
+    diff_contracts,
+    generate_contract,
+    load_contract,
+    validate_contract,
+)
+from duckguard.core.column import Column
+from duckguard.core.dataset import Dataset
+from duckguard.core.engine import DuckGuardEngine
+from duckguard.core.result import CheckResult, ValidationResult
+from duckguard.core.scoring import QualityScore, QualityScorer, score
+
+# Profiling
+from duckguard.profiler import AutoProfiler, profile
+
+# Rules (YAML-based)
+from duckguard.rules import (
+    RuleSet,
+    execute_rules,
+    generate_rules,
+    load_rules,
+    load_rules_from_string,
+)
+
+# Semantic type detection
+from duckguard.semantic import (
+    SemanticAnalyzer,
+    SemanticType,
+    detect_type,
+    detect_types_for_dataset,
 )
 
 __version__ = "2.0.0"

@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset
@@ -302,7 +302,6 @@ class QualityScorer:
         # Check for reasonable ranges on numeric columns
         if numeric_stats.get("mean") is not None:
             min_val = stats.get("min_value")
-            max_val = stats.get("max_value")
 
             # Check for negative values in likely positive-only columns
             is_likely_positive = any(

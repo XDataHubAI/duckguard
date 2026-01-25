@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from duckguard.core.dataset import Dataset
-from duckguard.core.result import ProfileResult, ColumnProfile
+from duckguard.core.result import ColumnProfile, ProfileResult
 
 
 @dataclass
@@ -319,7 +319,7 @@ class AutoProfiler:
             f'def test_{dataset.name.replace("-", "_").replace(".", "_")}():',
             f'    {output_var} = connect("{dataset.source}")',
             "",
-            f"    # Basic dataset checks",
+            "    # Basic dataset checks",
             f"    assert {output_var}.row_count > 0",
             "",
         ]

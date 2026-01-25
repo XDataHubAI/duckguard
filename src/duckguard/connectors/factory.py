@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from duckguard.connectors.base import Connector, ConnectionConfig
-from duckguard.connectors.files import FileConnector, S3Connector, GCSConnector, AzureConnector
+from duckguard.connectors.base import ConnectionConfig, Connector
+from duckguard.connectors.files import AzureConnector, FileConnector, GCSConnector, S3Connector
 from duckguard.core.dataset import Dataset
 from duckguard.core.engine import DuckGuardEngine
-
 
 # Registry of available connectors
 _CONNECTORS: list[type[Connector]] = [

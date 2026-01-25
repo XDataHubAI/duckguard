@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from duckguard.connectors.base import Connector, ConnectionConfig
+from duckguard.connectors.base import ConnectionConfig, Connector
 from duckguard.core.dataset import Dataset
 from duckguard.core.engine import DuckGuardEngine
 

@@ -12,9 +12,7 @@ from typing import Any
 from duckguard.core.dataset import Dataset
 from duckguard.semantic.detector import (
     SemanticType,
-    SemanticTypeResult,
     SemanticTypeDetector,
-    PII_TYPES,
 )
 
 

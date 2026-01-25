@@ -10,14 +10,14 @@ from typing import Any
 
 import yaml
 
-from duckguard.core.dataset import Dataset
 from duckguard.connectors import connect
+from duckguard.core.dataset import Dataset
 from duckguard.rules.schema import (
-    RuleSet,
-    ColumnRules,
+    BUILTIN_PATTERNS,
     Check,
     CheckType,
-    BUILTIN_PATTERNS,
+    ColumnRules,
+    RuleSet,
 )
 
 

@@ -9,15 +9,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from duckguard.core.dataset import Dataset
-from duckguard.core.result import ValidationResult
 from duckguard.connectors import connect
+from duckguard.core.dataset import Dataset
 from duckguard.rules.schema import (
-    RuleSet,
+    BUILTIN_PATTERNS,
     Check,
     CheckType,
+    RuleSet,
     Severity,
-    BUILTIN_PATTERNS,
 )
 
 

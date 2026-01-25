@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
-from duckguard.core.result import ProfileResult, ScanResult, CheckResult, CheckStatus
+from duckguard.core.result import CheckResult, CheckStatus, ProfileResult, ScanResult
 
 
 class ConsoleReporter:

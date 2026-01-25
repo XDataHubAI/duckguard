@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from duckguard.contracts.schema import DataContract, SchemaField, FieldType
+from duckguard.contracts.schema import DataContract, FieldType, SchemaField
 
 
 class ChangeType(Enum):

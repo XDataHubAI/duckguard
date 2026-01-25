@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from duckguard.core.engine import DuckGuardEngine
 from duckguard.core.column import Column
+from duckguard.core.engine import DuckGuardEngine
 
 if TYPE_CHECKING:
     from duckguard.core.scoring import QualityScore
@@ -230,7 +230,7 @@ class Dataset:
     def score(
         self,
         weights: dict | None = None,
-    ) -> "QualityScore":
+    ) -> QualityScore:
         """
         Calculate data quality score for this dataset.
 
@@ -262,7 +262,7 @@ class Dataset:
                 'consistency': 0.1,
             })
         """
-        from duckguard.core.scoring import QualityScorer, QualityDimension
+        from duckguard.core.scoring import QualityDimension, QualityScorer
 
         # Convert string keys to QualityDimension enums if needed
         scorer_weights = None

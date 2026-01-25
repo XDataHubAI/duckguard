@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from duckguard.connectors.base import Connector, ConnectionConfig
+from duckguard.connectors.base import ConnectionConfig, Connector
 from duckguard.core.dataset import Dataset
 from duckguard.core.engine import DuckGuardEngine
 
@@ -55,20 +55,17 @@ class SQLServerConnector(Connector):
             Dataset object
         """
         # Try pyodbc first, then pymssql
-        try:
-            import pyodbc
+        import importlib.util
 
+        if importlib.util.find_spec("pyodbc") is not None:
             driver_module = "pyodbc"
-        except ImportError:
-            try:
-                import pymssql
-
-                driver_module = "pymssql"
-            except ImportError:
-                raise ImportError(
-                    "SQL Server support requires pyodbc or pymssql. "
-                    "Install with: pip install duckguard[sqlserver]"
-                )
+        elif importlib.util.find_spec("pymssql") is not None:
+            driver_module = "pymssql"
+        else:
+            raise ImportError(
+                "SQL Server support requires pyodbc or pymssql. "
+                "Install with: pip install duckguard[sqlserver]"
+            )
 
         if not config.table:
             raise ValueError("Table name is required for SQL Server connections")

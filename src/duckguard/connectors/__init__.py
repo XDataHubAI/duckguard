@@ -1,8 +1,8 @@
 """Connectors for various data sources."""
 
-from duckguard.connectors.base import Connector, ConnectionConfig
-from duckguard.connectors.files import FileConnector, S3Connector, GCSConnector, AzureConnector
+from duckguard.connectors.base import ConnectionConfig, Connector
 from duckguard.connectors.factory import connect, register_connector
+from duckguard.connectors.files import AzureConnector, FileConnector, GCSConnector, S3Connector
 
 # Database connectors (imported lazily to avoid import errors)
 __all__ = [

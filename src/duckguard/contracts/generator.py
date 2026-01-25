@@ -7,19 +7,18 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-from duckguard.core.dataset import Dataset
 from duckguard.connectors import connect
-from duckguard.contracts.schema import (
-    DataContract,
-    SchemaField,
-    FieldType,
-    FieldConstraint,
-    QualitySLA,
-    ContractMetadata,
-)
 from duckguard.contracts.loader import contract_to_yaml
+from duckguard.contracts.schema import (
+    ContractMetadata,
+    DataContract,
+    FieldConstraint,
+    FieldType,
+    QualitySLA,
+    SchemaField,
+)
+from duckguard.core.dataset import Dataset
 from duckguard.semantic import SemanticAnalyzer, SemanticType
 
 

@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import pytest
 
-from duckguard.core.engine import DuckGuardEngine
 from duckguard.connectors import connect as duckguard_connect
+from duckguard.core.engine import DuckGuardEngine
 
 
 @pytest.fixture(scope="session")

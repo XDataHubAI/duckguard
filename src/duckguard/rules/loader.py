@@ -35,13 +35,13 @@ from typing import Any
 import yaml
 
 from duckguard.rules.schema import (
-    RuleSet,
-    ColumnRules,
-    TableRules,
+    BUILTIN_PATTERNS,
     Check,
     CheckType,
+    ColumnRules,
+    RuleSet,
     Severity,
-    BUILTIN_PATTERNS,
+    TableRules,
 )
 
 
@@ -71,7 +71,7 @@ def load_rules(path: str | Path) -> RuleSet:
     if not path.exists():
         raise FileNotFoundError(f"Rules file not found: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
 
     return load_rules_from_string(content, source_file=str(path))

@@ -5,10 +5,10 @@ Implements various statistical methods for detecting anomalies in data.
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
-import math
 
 
 @dataclass
@@ -176,8 +176,6 @@ class IQRMethod(AnomalyMethod):
         clean_values = sorted(v for v in values if v is not None and not math.isnan(v))
         if not clean_values:
             return
-
-        n = len(clean_values)
 
         # Calculate Q1 and Q3
         self._q1 = self._percentile(clean_values, 25)

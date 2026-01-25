@@ -12,13 +12,13 @@ Example:
     print(result.confidence)     # 0.95
 """
 
+from duckguard.semantic.analyzer import SemanticAnalyzer
 from duckguard.semantic.detector import (
     SemanticType,
     SemanticTypeResult,
     detect_type,
     detect_types_for_dataset,
 )
-from duckguard.semantic.analyzer import SemanticAnalyzer
 from duckguard.semantic.validators import get_validator_for_type
 
 __all__ = [
