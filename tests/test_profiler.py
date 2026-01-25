@@ -1,7 +1,5 @@
 """Tests for the auto-profiler."""
 
-import pytest
-from duckguard import connect
 from duckguard.profiler import AutoProfiler, profile
 
 

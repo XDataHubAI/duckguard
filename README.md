@@ -48,6 +48,9 @@ assert orders.status.isin(['pending', 'shipped', 'delivered'])
 | **Data Contracts** | Schema + SLAs with breaking change detection |
 | **Anomaly Detection** | Z-score, IQR, and percent change methods |
 | **pytest Integration** | Data tests alongside unit tests |
+| **Slack/Teams Alerts** | Get notified when checks fail |
+| **Row-Level Errors** | See exactly which rows failed |
+| **dbt Integration** | Export rules as dbt tests |
 
 ## Quick Examples
 
@@ -91,6 +94,48 @@ report = detect_anomalies(orders, method="zscore")
 from duckguard import generate_contract, validate_contract
 contract = generate_contract(orders)
 result = validate_contract(contract, new_orders)
+```
+
+### Slack/Teams Notifications
+```python
+from duckguard.notifications import SlackNotifier
+
+slack = SlackNotifier(webhook_url="https://hooks.slack.com/...")
+# Or set DUCKGUARD_SLACK_WEBHOOK env var
+
+result = execute_rules(rules, dataset=orders)
+if not result.passed:
+    slack.send_failure_alert(result)
+```
+
+### Row-Level Error Debugging
+```python
+# See exactly which rows failed validation
+result = orders.quantity.between(1, 100)
+if not result.passed:
+    print(result.summary())
+    # Sample of 10 failing rows (total: 25):
+    #   Row 5: quantity=150 - Value 150 is outside range [1, 100]
+    #   Row 12: quantity=200 - Value 200 is outside range [1, 100]
+
+    # Get failed values as list
+    print(result.get_failed_values())  # [150, 200, ...]
+```
+
+### dbt Integration
+```python
+from duckguard import load_rules
+from duckguard.integrations import dbt
+
+# Export DuckGuard rules to dbt schema.yml
+rules = load_rules("duckguard.yaml")
+dbt.export_to_schema(rules, "models/schema.yml")
+
+# Generate dbt singular tests
+dbt.generate_singular_tests(rules, "tests/")
+
+# Import dbt tests as DuckGuard rules
+rules = dbt.import_from_dbt("models/schema.yml")
 ```
 
 ## Supported Sources

@@ -1,7 +1,7 @@
 """Tests for the CLI."""
 
-import pytest
 from typer.testing import CliRunner
+
 from duckguard.cli.main import app
 
 runner = CliRunner()

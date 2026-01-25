@@ -1,8 +1,8 @@
 """Tests for the Dataset class."""
 
 import pytest
+
 from duckguard import connect
-from duckguard.core.dataset import Dataset
 
 
 class TestDataset:

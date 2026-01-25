@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from duckguard.core.result import ValidationResult
+from duckguard.core.result import FailedRow, ValidationResult
 
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset
+
+# Default number of failed rows to capture for debugging
+DEFAULT_SAMPLE_SIZE = 10
 
 
 class Column:
@@ -163,13 +166,14 @@ class Column:
             message=f"Column '{self._name}' unique_percent is {actual:.2f}% (threshold: {threshold}%)",
         )
 
-    def between(self, min_val: Any, max_val: Any) -> ValidationResult:
+    def between(self, min_val: Any, max_val: Any, capture_failures: bool = True) -> ValidationResult:
         """
         Check that all values are between min and max (inclusive).
 
         Args:
             min_val: Minimum allowed value
             max_val: Maximum allowed value
+            capture_failures: Whether to capture sample failing rows (default: True)
 
         Returns:
             ValidationResult indicating if all non-null values are in range
@@ -187,20 +191,53 @@ class Column:
         out_of_range = self._dataset.engine.fetch_value(sql) or 0
         passed = out_of_range == 0
 
+        # Capture sample of failing rows for debugging
+        failed_rows = []
+        if not passed and capture_failures:
+            failed_rows = self._get_failed_rows_between(min_val, max_val)
+
         return ValidationResult(
             passed=passed,
             actual_value=out_of_range,
             expected_value=0,
             message=f"Column '{self._name}' has {out_of_range} values outside [{min_val}, {max_val}]",
             details={"min": min_val, "max": max_val, "out_of_range_count": out_of_range},
+            failed_rows=failed_rows,
+            total_failures=out_of_range,
         )
 
-    def matches(self, pattern: str) -> ValidationResult:
+    def _get_failed_rows_between(self, min_val: Any, max_val: Any, limit: int = DEFAULT_SAMPLE_SIZE) -> list[FailedRow]:
+        """Get sample of rows that failed between check."""
+        ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        col = f'"{self._name}"'
+
+        sql = f"""
+        SELECT row_number() OVER () as row_idx, {col} as val
+        FROM {ref}
+        WHERE {col} IS NOT NULL
+          AND ({col} < {min_val} OR {col} > {max_val})
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        return [
+            FailedRow(
+                row_index=row[0],
+                column=self._name,
+                value=row[1],
+                expected=f"between {min_val} and {max_val}",
+                reason=f"Value {row[1]} is outside range [{min_val}, {max_val}]",
+            )
+            for row in rows
+        ]
+
+    def matches(self, pattern: str, capture_failures: bool = True) -> ValidationResult:
         """
         Check that all non-null values match a regex pattern.
 
         Args:
             pattern: Regular expression pattern
+            capture_failures: Whether to capture sample failing rows (default: True)
 
         Returns:
             ValidationResult
@@ -219,20 +256,53 @@ class Column:
         non_matching = self._dataset.engine.fetch_value(sql) or 0
         passed = non_matching == 0
 
+        # Capture sample of failing rows
+        failed_rows = []
+        if not passed and capture_failures:
+            failed_rows = self._get_failed_rows_pattern(pattern)
+
         return ValidationResult(
             passed=passed,
             actual_value=non_matching,
             expected_value=0,
             message=f"Column '{self._name}' has {non_matching} values not matching pattern '{pattern}'",
             details={"pattern": pattern, "non_matching_count": non_matching},
+            failed_rows=failed_rows,
+            total_failures=non_matching,
         )
 
-    def isin(self, values: list[Any]) -> ValidationResult:
+    def _get_failed_rows_pattern(self, pattern: str, limit: int = DEFAULT_SAMPLE_SIZE) -> list[FailedRow]:
+        """Get sample of rows that failed pattern match."""
+        ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        col = f'"{self._name}"'
+
+        sql = f"""
+        SELECT row_number() OVER () as row_idx, {col} as val
+        FROM {ref}
+        WHERE {col} IS NOT NULL
+          AND NOT regexp_matches({col}::VARCHAR, '{pattern}')
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        return [
+            FailedRow(
+                row_index=row[0],
+                column=self._name,
+                value=row[1],
+                expected=f"matches pattern '{pattern}'",
+                reason=f"Value '{row[1]}' does not match pattern",
+            )
+            for row in rows
+        ]
+
+    def isin(self, values: list[Any], capture_failures: bool = True) -> ValidationResult:
         """
         Check that all non-null values are in the allowed set.
 
         Args:
             values: List of allowed values
+            capture_failures: Whether to capture sample failing rows (default: True)
 
         Returns:
             ValidationResult
@@ -255,13 +325,49 @@ class Column:
         invalid_count = self._dataset.engine.fetch_value(sql) or 0
         passed = invalid_count == 0
 
+        # Capture sample of failing rows
+        failed_rows = []
+        if not passed and capture_failures:
+            failed_rows = self._get_failed_rows_isin(values)
+
         return ValidationResult(
             passed=passed,
             actual_value=invalid_count,
             expected_value=0,
             message=f"Column '{self._name}' has {invalid_count} values not in allowed set",
             details={"allowed_values": values, "invalid_count": invalid_count},
+            failed_rows=failed_rows,
+            total_failures=invalid_count,
         )
+
+    def _get_failed_rows_isin(self, values: list[Any], limit: int = DEFAULT_SAMPLE_SIZE) -> list[FailedRow]:
+        """Get sample of rows that failed isin check."""
+        ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        col = f'"{self._name}"'
+
+        formatted_values = ", ".join(
+            f"'{v}'" if isinstance(v, str) else str(v) for v in values
+        )
+
+        sql = f"""
+        SELECT row_number() OVER () as row_idx, {col} as val
+        FROM {ref}
+        WHERE {col} IS NOT NULL
+          AND {col} NOT IN ({formatted_values})
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        return [
+            FailedRow(
+                row_index=row[0],
+                column=self._name,
+                value=row[1],
+                expected=f"in {values}",
+                reason=f"Value '{row[1]}' is not in allowed set",
+            )
+            for row in rows
+        ]
 
     def has_no_duplicates(self) -> ValidationResult:
         """

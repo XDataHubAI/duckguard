@@ -1,6 +1,5 @@
 """Tests for the DuckGuard engine."""
 
-import pytest
 from duckguard.core.engine import DuckGuardEngine
 
 

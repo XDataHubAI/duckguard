@@ -1,13 +1,13 @@
 """Tests for connectors."""
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
+import tempfile
+
+import pytest
 
 from duckguard import connect
-from duckguard.connectors.files import FileConnector
 from duckguard.connectors.factory import _is_database_connection
+from duckguard.connectors.files import FileConnector
 
 
 class TestFileConnector:
