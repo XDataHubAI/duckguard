@@ -176,9 +176,9 @@ class TestHTMLReporter:
 
         reporter.generate(mock_execution_result, output_path)
 
-        content = output_path.read_text()
         # File should still be created
         assert output_path.exists()
+        assert output_path.read_text()  # Verify content is readable
 
     def test_score_to_grade(self):
         """Test score to grade conversion."""
@@ -227,11 +227,11 @@ class TestPDFReporter:
         from duckguard.reports import PDFReporter
 
         reporter = PDFReporter()
-        output_path = temp_output_dir / "report.pdf"
-
         # The generate method should raise ImportError if weasyprint is not installed
         # We don't want to require weasyprint for tests, so we just verify the class exists
         assert reporter is not None
+        # Verify temp_output_dir is usable for PDF output
+        assert temp_output_dir.exists()
 
 
 class TestIntegration:

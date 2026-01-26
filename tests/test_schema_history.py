@@ -4,17 +4,15 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
 from duckguard.schema_history import (
-    SchemaTracker,
-    SchemaChangeAnalyzer,
-    SchemaSnapshot,
-    SchemaChange,
-    SchemaEvolutionReport,
     ColumnSchema,
+    SchemaChange,
+    SchemaChangeAnalyzer,
+    SchemaEvolutionReport,
+    SchemaSnapshot,
+    SchemaTracker,
 )
-from duckguard.schema_history.analyzer import ChangeType, ChangeSeverity
+from duckguard.schema_history.analyzer import ChangeSeverity, ChangeType
 
 
 class TestColumnSchema:
@@ -146,8 +144,8 @@ class TestSchemaTracker:
     def test_capture_snapshot(self):
         """Test capturing a schema snapshot."""
         from duckguard import connect
-        from duckguard.history import HistoryStorage
         from duckguard.core.engine import DuckGuardEngine
+        from duckguard.history import HistoryStorage
 
         # Create temp CSV
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
@@ -178,8 +176,8 @@ class TestSchemaTracker:
     def test_get_history(self):
         """Test getting schema history."""
         from duckguard import connect
-        from duckguard.history import HistoryStorage
         from duckguard.core.engine import DuckGuardEngine
+        from duckguard.history import HistoryStorage
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             f.write("id,name\n1,test\n")
@@ -211,8 +209,8 @@ class TestSchemaTracker:
     def test_get_latest(self):
         """Test getting latest snapshot."""
         from duckguard import connect
-        from duckguard.history import HistoryStorage
         from duckguard.core.engine import DuckGuardEngine
+        from duckguard.history import HistoryStorage
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             f.write("id,name\n1,test\n")
@@ -380,8 +378,8 @@ class TestSchemaChangeAnalyzer:
     def test_detect_changes(self):
         """Test detect_changes with dataset."""
         from duckguard import connect
-        from duckguard.history import HistoryStorage
         from duckguard.core.engine import DuckGuardEngine
+        from duckguard.history import HistoryStorage
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             f.write("id,name\n1,test\n")

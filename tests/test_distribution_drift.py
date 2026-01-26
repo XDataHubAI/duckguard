@@ -1,6 +1,5 @@
 """Tests for Distribution Drift Detection feature."""
 
-import pytest
 
 from duckguard import connect
 

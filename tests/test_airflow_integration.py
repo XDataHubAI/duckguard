@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import sys
-from unittest.mock import MagicMock, patch
-
 import pytest
-
 
 # Check if Airflow is available
 try:
-    import airflow
+    import airflow  # noqa: F401
+
     AIRFLOW_AVAILABLE = True
 except ImportError:
     AIRFLOW_AVAILABLE = False

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from duckguard.core.column import Column
 from duckguard.core.engine import DuckGuardEngine
-from duckguard.core.result import ValidationResult
+from duckguard.core.result import GroupByResult, ReconciliationResult, ValidationResult
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -465,7 +465,6 @@ class Dataset:
             compare_columns = [c for c in self.columns if c not in key_columns]
 
         # Build key column references
-        key_cols_sql = ", ".join(f'"{k}"' for k in key_columns)
         key_join_condition = " AND ".join(
             f's."{k}" = t."{k}"' for k in key_columns
         )

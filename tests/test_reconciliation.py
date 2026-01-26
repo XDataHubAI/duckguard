@@ -1,6 +1,5 @@
 """Tests for Reconciliation feature."""
 
-import pytest
 
 from duckguard import connect
 

@@ -9,7 +9,6 @@ import pytest
 from duckguard import connect
 from duckguard.core.engine import DuckGuardEngine
 
-
 # ============================================================================
 # Test Fixtures
 # ============================================================================

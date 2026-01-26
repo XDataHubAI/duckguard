@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -12,9 +12,8 @@ import pytest
 from duckguard.history import (
     HistoryStorage,
     StoredRun,
-    TrendAnalyzer,
     TrendAnalysis,
-    analyze_trends,
+    TrendAnalyzer,
 )
 
 
@@ -228,8 +227,8 @@ class TestAnalyzeTrendsFunction:
 
     def test_analyze_trends(self):
         """Test the convenience function."""
-        import tempfile
         import os
+        import tempfile
 
         # Use a unique temp file that we manage ourselves
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -273,10 +272,10 @@ class TestAnalyzeTrendsFunction:
 
             # Now test analyze_trends - it will create its own connection
             # We need to make sure it closes properly
-            from duckguard.history.storage import HistoryStorage as HS
+            from duckguard.history.storage import HistoryStorage as HistStorage
             from duckguard.history.trends import TrendAnalyzer
 
-            storage2 = HS(db_path=db_path)
+            storage2 = HistStorage(db_path=db_path)
             try:
                 analyzer = TrendAnalyzer(storage2)
                 analysis = analyzer.analyze("test_data.csv", days=30)

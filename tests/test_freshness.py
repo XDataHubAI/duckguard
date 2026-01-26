@@ -5,8 +5,6 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from duckguard.freshness import FreshnessMonitor, FreshnessResult
 from duckguard.freshness.monitor import FreshnessMethod, parse_age_string
 

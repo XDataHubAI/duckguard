@@ -9,7 +9,6 @@ import pytest
 
 from duckguard.core.engine import DuckGuardEngine
 
-
 # ============================================================================
 # Engine Reset Fixture
 # ============================================================================

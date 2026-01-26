@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from duckguard.core.result import FailedRow, ValidationResult
+from duckguard.core.result import DriftResult, FailedRow, ValidationResult
 
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset

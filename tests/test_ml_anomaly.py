@@ -1,22 +1,18 @@
 """Tests for ML-based anomaly detection methods."""
 
-import math
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from duckguard.anomaly.baselines import (
+    BaselineStorage,
+    ColumnBaseline,
+)
 from duckguard.anomaly.ml_methods import (
     BaselineMethod,
     KSTestMethod,
     SeasonalMethod,
-    BaselineComparison,
-    DistributionComparison,
-)
-from duckguard.anomaly.baselines import (
-    BaselineStorage,
-    StoredBaseline,
-    ColumnBaseline,
 )
 
 
@@ -264,7 +260,6 @@ class TestBaselineStorage:
 
     def test_store_and_get(self):
         """Test storing and retrieving baselines."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -290,7 +285,6 @@ class TestBaselineStorage:
 
     def test_get_nonexistent(self):
         """Test getting nonexistent baseline."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -306,7 +300,6 @@ class TestBaselineStorage:
 
     def test_update_replace(self):
         """Test updating baseline with replace method."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -325,7 +318,6 @@ class TestBaselineStorage:
 
     def test_update_rolling(self):
         """Test updating baseline with rolling average."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -345,7 +337,6 @@ class TestBaselineStorage:
 
     def test_get_all(self):
         """Test getting all baselines for a source."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -365,7 +356,6 @@ class TestBaselineStorage:
 
     def test_delete(self):
         """Test deleting baselines."""
-        import tempfile
         from duckguard.history import HistoryStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
