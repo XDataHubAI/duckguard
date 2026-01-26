@@ -208,3 +208,239 @@ class ScanResult:
         if self.checks_run == 0:
             return 100.0
         return (self.checks_passed / self.checks_run) * 100
+
+
+# =========================================================================
+# Distribution Drift Results
+# =========================================================================
+
+
+@dataclass
+class DriftResult:
+    """Result of distribution drift detection between two columns.
+
+    Attributes:
+        is_drifted: Whether significant drift was detected
+        p_value: Statistical p-value from the test
+        statistic: Test statistic value
+        threshold: P-value threshold used for detection
+        method: Statistical method used (e.g., "ks_test")
+        message: Human-readable summary
+        details: Additional metadata
+    """
+
+    is_drifted: bool
+    p_value: float
+    statistic: float
+    threshold: float = 0.05
+    method: str = "ks_test"
+    message: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        """Returns True if NO drift detected (data is stable)."""
+        return not self.is_drifted
+
+    def __repr__(self) -> str:
+        status = "DRIFT DETECTED" if self.is_drifted else "STABLE"
+        return f"DriftResult({status}, p_value={self.p_value:.4f}, threshold={self.threshold})"
+
+    def summary(self) -> str:
+        """Get a human-readable summary."""
+        status = "DRIFT DETECTED" if self.is_drifted else "No significant drift"
+        return f"{status} (p-value: {self.p_value:.4f}, threshold: {self.threshold}, method: {self.method})"
+
+
+# =========================================================================
+# Reconciliation Results
+# =========================================================================
+
+
+@dataclass
+class ReconciliationMismatch:
+    """Represents a single row mismatch in reconciliation.
+
+    Attributes:
+        key_values: Dictionary of key column values that identify the row
+        column: Column name where mismatch occurred
+        source_value: Value in source dataset
+        target_value: Value in target dataset
+        mismatch_type: Type of mismatch ("value_diff", "missing_in_target", "extra_in_target")
+    """
+
+    key_values: dict[str, Any]
+    column: str
+    source_value: Any = None
+    target_value: Any = None
+    mismatch_type: str = "value_diff"
+
+    def __repr__(self) -> str:
+        keys = ", ".join(f"{k}={v}" for k, v in self.key_values.items())
+        return f"ReconciliationMismatch({keys}, {self.column}: {self.source_value} vs {self.target_value})"
+
+
+@dataclass
+class ReconciliationResult:
+    """Result of reconciling two datasets.
+
+    Attributes:
+        passed: Whether reconciliation passed (datasets match)
+        source_row_count: Number of rows in source dataset
+        target_row_count: Number of rows in target dataset
+        missing_in_target: Rows in source but not in target
+        extra_in_target: Rows in target but not in source
+        value_mismatches: Count of value mismatches by column
+        match_percentage: Percentage of rows that match
+        key_columns: Columns used as keys for matching
+        compared_columns: Columns compared for values
+        mismatches: Sample of actual mismatches
+        details: Additional metadata
+    """
+
+    passed: bool
+    source_row_count: int
+    target_row_count: int
+    missing_in_target: int = 0
+    extra_in_target: int = 0
+    value_mismatches: dict[str, int] = field(default_factory=dict)
+    match_percentage: float = 100.0
+    key_columns: list[str] = field(default_factory=list)
+    compared_columns: list[str] = field(default_factory=list)
+    mismatches: list[ReconciliationMismatch] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        """Allow using ReconciliationResult in boolean context."""
+        return self.passed
+
+    def __repr__(self) -> str:
+        status = "MATCHED" if self.passed else "MISMATCHED"
+        return f"ReconciliationResult({status}, match={self.match_percentage:.1f}%, missing={self.missing_in_target}, extra={self.extra_in_target})"
+
+    @property
+    def total_mismatches(self) -> int:
+        """Total number of mismatches across all columns."""
+        return self.missing_in_target + self.extra_in_target + sum(self.value_mismatches.values())
+
+    def summary(self) -> str:
+        """Get a human-readable summary."""
+        lines = [
+            f"Reconciliation: {'PASSED' if self.passed else 'FAILED'} ({self.match_percentage:.1f}% match)",
+            f"Source rows: {self.source_row_count}, Target rows: {self.target_row_count}",
+        ]
+
+        if self.missing_in_target > 0:
+            lines.append(f"Missing in target: {self.missing_in_target} rows")
+        if self.extra_in_target > 0:
+            lines.append(f"Extra in target: {self.extra_in_target} rows")
+        if self.value_mismatches:
+            lines.append("Column mismatches:")
+            for col, count in self.value_mismatches.items():
+                lines.append(f"  {col}: {count} differences")
+
+        if self.mismatches:
+            lines.append(f"\nSample mismatches ({len(self.mismatches)} shown):")
+            for m in self.mismatches[:5]:
+                keys = ", ".join(f"{k}={v}" for k, v in m.key_values.items())
+                lines.append(f"  [{keys}] {m.column}: {m.source_value!r} vs {m.target_value!r}")
+
+        return "\n".join(lines)
+
+
+# =========================================================================
+# Group By Results
+# =========================================================================
+
+
+@dataclass
+class GroupResult:
+    """Validation result for a single group.
+
+    Attributes:
+        group_key: Dictionary of group column values
+        row_count: Number of rows in this group
+        passed: Whether all checks passed for this group
+        check_results: List of individual check results
+        stats: Group-level statistics
+    """
+
+    group_key: dict[str, Any]
+    row_count: int
+    passed: bool = True
+    check_results: list[ValidationResult] = field(default_factory=list)
+    stats: dict[str, Any] = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        """Allow using GroupResult in boolean context."""
+        return self.passed
+
+    def __repr__(self) -> str:
+        keys = ", ".join(f"{k}={v}" for k, v in self.group_key.items())
+        status = "PASSED" if self.passed else "FAILED"
+        return f"GroupResult({keys}, rows={self.row_count}, {status})"
+
+    @property
+    def key_string(self) -> str:
+        """Get a string representation of the group key."""
+        return ", ".join(f"{k}={v}" for k, v in self.group_key.items())
+
+
+@dataclass
+class GroupByResult:
+    """Result of group-by validation across all groups.
+
+    Attributes:
+        passed: Whether all groups passed validation
+        total_groups: Total number of groups
+        passed_groups: Number of groups that passed
+        failed_groups: Number of groups that failed
+        group_results: Individual results per group
+        group_columns: Columns used for grouping
+        details: Additional metadata
+    """
+
+    passed: bool
+    total_groups: int
+    passed_groups: int = 0
+    failed_groups: int = 0
+    group_results: list[GroupResult] = field(default_factory=list)
+    group_columns: list[str] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        """Allow using GroupByResult in boolean context."""
+        return self.passed
+
+    def __repr__(self) -> str:
+        status = "PASSED" if self.passed else "FAILED"
+        return f"GroupByResult({status}, groups={self.total_groups}, passed={self.passed_groups}, failed={self.failed_groups})"
+
+    @property
+    def pass_rate(self) -> float:
+        """Calculate the pass rate as a percentage."""
+        if self.total_groups == 0:
+            return 100.0
+        return (self.passed_groups / self.total_groups) * 100
+
+    def get_failed_groups(self) -> list[GroupResult]:
+        """Get list of groups that failed validation."""
+        return [g for g in self.group_results if not g.passed]
+
+    def summary(self) -> str:
+        """Get a human-readable summary."""
+        lines = [
+            f"Group By Validation: {'PASSED' if self.passed else 'FAILED'}",
+            f"Groups: {self.total_groups} total, {self.passed_groups} passed, {self.failed_groups} failed ({self.pass_rate:.1f}%)",
+            f"Grouped by: {', '.join(self.group_columns)}",
+        ]
+
+        failed = self.get_failed_groups()
+        if failed:
+            lines.append(f"\nFailed groups ({len(failed)}):")
+            for g in failed[:5]:
+                lines.append(f"  [{g.key_string}]: {g.row_count} rows")
+                for cr in g.check_results:
+                    if not cr.passed:
+                        lines.append(f"    - {cr.message}")
+
+        return "\n".join(lines)

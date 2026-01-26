@@ -477,6 +477,358 @@ class Column:
             message=f"Column '{self._name}' has {invalid_count} values with length outside [{min_len}, {max_len}]",
         )
 
+    # =========================================================================
+    # Cross-Dataset Validation Methods (Reference/FK Checks)
+    # =========================================================================
+
+    def exists_in(
+        self,
+        reference_column: Column,
+        capture_failures: bool = True,
+    ) -> ValidationResult:
+        """
+        Check that all non-null values in this column exist in the reference column.
+
+        This is the core foreign key validation method using an efficient SQL anti-join.
+        Null values in this column are ignored (they don't need to exist in reference).
+
+        Args:
+            reference_column: Column object from the reference dataset
+            capture_failures: Whether to capture sample orphaned rows (default: True)
+
+        Returns:
+            ValidationResult with orphan count and sample failed rows
+
+        Example:
+            orders = connect("orders.parquet")
+            customers = connect("customers.parquet")
+            result = orders["customer_id"].exists_in(customers["id"])
+            if not result:
+                print(f"Found {result.actual_value} orphan customer IDs")
+        """
+        # Get source references for both datasets
+        source_ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        ref_ref = reference_column._dataset.engine.get_source_reference(
+            reference_column._dataset.source
+        )
+        source_col = f'"{self._name}"'
+        ref_col = f'"{reference_column._name}"'
+
+        # Count orphans using efficient anti-join pattern
+        sql = f"""
+        SELECT COUNT(*) as orphan_count
+        FROM {source_ref} s
+        WHERE s.{source_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {ref_ref} r
+            WHERE r.{ref_col} = s.{source_col}
+          )
+        """
+
+        orphan_count = self._dataset.engine.fetch_value(sql) or 0
+        passed = orphan_count == 0
+
+        # Capture sample of orphan rows for debugging
+        failed_rows = []
+        if not passed and capture_failures:
+            failed_rows = self._get_failed_rows_exists_in(reference_column)
+
+        ref_dataset_name = reference_column._dataset.name or reference_column._dataset.source
+        return ValidationResult(
+            passed=passed,
+            actual_value=orphan_count,
+            expected_value=0,
+            message=f"Column '{self._name}' has {orphan_count} values not found in {ref_dataset_name}.{reference_column._name}",
+            details={
+                "orphan_count": orphan_count,
+                "reference_dataset": ref_dataset_name,
+                "reference_column": reference_column._name,
+            },
+            failed_rows=failed_rows,
+            total_failures=orphan_count,
+        )
+
+    def _get_failed_rows_exists_in(
+        self, reference_column: Column, limit: int = DEFAULT_SAMPLE_SIZE
+    ) -> list[FailedRow]:
+        """Get sample of rows with orphan values (not found in reference)."""
+        source_ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        ref_ref = reference_column._dataset.engine.get_source_reference(
+            reference_column._dataset.source
+        )
+        source_col = f'"{self._name}"'
+        ref_col = f'"{reference_column._name}"'
+
+        sql = f"""
+        SELECT row_number() OVER () as row_idx, s.{source_col} as val
+        FROM {source_ref} s
+        WHERE s.{source_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {ref_ref} r
+            WHERE r.{ref_col} = s.{source_col}
+          )
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        ref_dataset_name = reference_column._dataset.name or reference_column._dataset.source
+        return [
+            FailedRow(
+                row_index=row[0],
+                column=self._name,
+                value=row[1],
+                expected=f"exists in {ref_dataset_name}.{reference_column._name}",
+                reason=f"Value '{row[1]}' not found in reference",
+                context={"reference_dataset": ref_dataset_name},
+            )
+            for row in rows
+        ]
+
+    def references(
+        self,
+        reference_column: Column,
+        allow_nulls: bool = True,
+        capture_failures: bool = True,
+    ) -> ValidationResult:
+        """
+        Check foreign key relationship with configurable options.
+
+        This is a more configurable version of exists_in() that allows
+        controlling how null values are handled.
+
+        Args:
+            reference_column: Column in the reference dataset
+            allow_nulls: If True (default), null values pass. If False, nulls fail.
+            capture_failures: Whether to capture sample orphaned rows (default: True)
+
+        Returns:
+            ValidationResult
+
+        Example:
+            # Nulls are OK (default)
+            result = orders["customer_id"].references(customers["id"])
+
+            # Nulls should fail
+            result = orders["customer_id"].references(
+                customers["id"],
+                allow_nulls=False,
+            )
+        """
+        # First, check for orphans (values not in reference)
+        result = self.exists_in(reference_column, capture_failures=capture_failures)
+
+        if not allow_nulls:
+            # Also count nulls as failures
+            null_count = self.null_count
+            if null_count > 0:
+                # Combine orphan failures with null failures
+                total_failures = result.actual_value + null_count
+                passed = total_failures == 0
+
+                # Add null rows to failed_rows if capturing
+                null_failed_rows = []
+                if capture_failures and null_count > 0:
+                    null_failed_rows = self._get_null_rows_sample()
+
+                ref_dataset_name = reference_column._dataset.name or reference_column._dataset.source
+                return ValidationResult(
+                    passed=passed,
+                    actual_value=total_failures,
+                    expected_value=0,
+                    message=f"Column '{self._name}' has {result.actual_value} orphans and {null_count} nulls (references {ref_dataset_name}.{reference_column._name})",
+                    details={
+                        "orphan_count": result.actual_value,
+                        "null_count": null_count,
+                        "reference_dataset": ref_dataset_name,
+                        "reference_column": reference_column._name,
+                        "allow_nulls": allow_nulls,
+                    },
+                    failed_rows=result.failed_rows + null_failed_rows,
+                    total_failures=total_failures,
+                )
+
+        return result
+
+    def _get_null_rows_sample(self, limit: int = DEFAULT_SAMPLE_SIZE) -> list[FailedRow]:
+        """Get sample of rows with null values."""
+        ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        col = f'"{self._name}"'
+
+        sql = f"""
+        SELECT row_number() OVER () as row_idx
+        FROM {ref}
+        WHERE {col} IS NULL
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        return [
+            FailedRow(
+                row_index=row[0],
+                column=self._name,
+                value=None,
+                expected="not null (allow_nulls=False)",
+                reason="Null value not allowed",
+            )
+            for row in rows
+        ]
+
+    def find_orphans(
+        self,
+        reference_column: Column,
+        limit: int = 100,
+    ) -> list[Any]:
+        """
+        Find values that don't exist in the reference column.
+
+        This is a helper method to quickly identify orphan values
+        without running a full validation.
+
+        Args:
+            reference_column: Column in the reference dataset
+            limit: Maximum number of orphan values to return (default: 100)
+
+        Returns:
+            List of orphan values
+
+        Example:
+            orphan_ids = orders["customer_id"].find_orphans(customers["id"])
+            print(f"Invalid customer IDs: {orphan_ids}")
+        """
+        source_ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        ref_ref = reference_column._dataset.engine.get_source_reference(
+            reference_column._dataset.source
+        )
+        source_col = f'"{self._name}"'
+        ref_col = f'"{reference_column._name}"'
+
+        sql = f"""
+        SELECT DISTINCT s.{source_col}
+        FROM {source_ref} s
+        WHERE s.{source_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {ref_ref} r
+            WHERE r.{ref_col} = s.{source_col}
+          )
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        return [row[0] for row in rows]
+
+    def matches_values(
+        self,
+        other_column: Column,
+        capture_failures: bool = True,
+    ) -> ValidationResult:
+        """
+        Check that this column's distinct values match another column's distinct values.
+
+        Useful for comparing reference data or checking data synchronization.
+        Both "missing in other" and "extra in other" are considered failures.
+
+        Args:
+            other_column: Column to compare against
+            capture_failures: Whether to capture sample mismatched values (default: True)
+
+        Returns:
+            ValidationResult indicating if value sets match
+
+        Example:
+            result = orders["status"].matches_values(status_lookup["code"])
+        """
+        source_ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        other_ref = other_column._dataset.engine.get_source_reference(
+            other_column._dataset.source
+        )
+        source_col = f'"{self._name}"'
+        other_col = f'"{other_column._name}"'
+
+        # Count values in source but not in other
+        sql_missing = f"""
+        SELECT COUNT(DISTINCT s.{source_col}) as missing_count
+        FROM {source_ref} s
+        WHERE s.{source_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {other_ref} o
+            WHERE o.{other_col} = s.{source_col}
+          )
+        """
+
+        # Count values in other but not in source
+        sql_extra = f"""
+        SELECT COUNT(DISTINCT o.{other_col}) as extra_count
+        FROM {other_ref} o
+        WHERE o.{other_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {source_ref} s
+            WHERE s.{source_col} = o.{other_col}
+          )
+        """
+
+        missing_count = self._dataset.engine.fetch_value(sql_missing) or 0
+        extra_count = self._dataset.engine.fetch_value(sql_extra) or 0
+        total_diff = missing_count + extra_count
+        passed = total_diff == 0
+
+        # Capture sample of mismatched values
+        failed_rows = []
+        if not passed and capture_failures:
+            failed_rows = self._get_failed_rows_matches_values(other_column)
+
+        other_dataset_name = other_column._dataset.name or other_column._dataset.source
+        return ValidationResult(
+            passed=passed,
+            actual_value=total_diff,
+            expected_value=0,
+            message=f"Column '{self._name}' has {missing_count} values missing in {other_dataset_name}.{other_column._name}, {extra_count} extra",
+            details={
+                "missing_in_other": missing_count,
+                "extra_in_other": extra_count,
+                "other_dataset": other_dataset_name,
+                "other_column": other_column._name,
+            },
+            failed_rows=failed_rows,
+            total_failures=total_diff,
+        )
+
+    def _get_failed_rows_matches_values(
+        self, other_column: Column, limit: int = DEFAULT_SAMPLE_SIZE
+    ) -> list[FailedRow]:
+        """Get sample of values that don't match between columns."""
+        source_ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        other_ref = other_column._dataset.engine.get_source_reference(
+            other_column._dataset.source
+        )
+        source_col = f'"{self._name}"'
+        other_col = f'"{other_column._name}"'
+
+        # Get values in source but not in other
+        sql = f"""
+        SELECT DISTINCT s.{source_col} as val, 'missing_in_other' as diff_type
+        FROM {source_ref} s
+        WHERE s.{source_col} IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM {other_ref} o
+            WHERE o.{other_col} = s.{source_col}
+          )
+        LIMIT {limit}
+        """
+
+        rows = self._dataset.engine.fetch_all(sql)
+        other_dataset_name = other_column._dataset.name or other_column._dataset.source
+        return [
+            FailedRow(
+                row_index=idx + 1,
+                column=self._name,
+                value=row[0],
+                expected=f"exists in {other_dataset_name}.{other_column._name}",
+                reason=f"Value '{row[0]}' not found in other column",
+                context={"diff_type": row[1]},
+            )
+            for idx, row in enumerate(rows)
+        ]
+
     def get_distinct_values(self, limit: int = 100) -> list[Any]:
         """
         Get distinct values in the column.
@@ -499,6 +851,132 @@ class Column:
 
         rows = self._dataset.engine.fetch_all(sql)
         return [row[0] for row in rows]
+
+    # =========================================================================
+    # Distribution Drift Detection
+    # =========================================================================
+
+    def detect_drift(
+        self,
+        reference_column: Column,
+        threshold: float = 0.05,
+        method: str = "ks_test",
+    ) -> DriftResult:
+        """
+        Detect distribution drift between this column and a reference column.
+
+        Uses statistical tests to determine if the distribution of values
+        has changed significantly. Useful for ML model monitoring and
+        data pipeline validation.
+
+        Args:
+            reference_column: Column from reference/baseline dataset
+            threshold: P-value threshold for drift detection (default: 0.05)
+            method: Statistical test method ("ks_test" for Kolmogorov-Smirnov)
+
+        Returns:
+            DriftResult with drift detection outcome
+
+        Example:
+            current = connect("orders_today.parquet")
+            baseline = connect("orders_baseline.parquet")
+            result = current["amount"].detect_drift(baseline["amount"])
+            if result.is_drifted:
+                print(f"Distribution drift detected! p-value: {result.p_value}")
+        """
+        from duckguard.core.result import DriftResult
+
+        # Get values from both columns
+        current_values = self._get_numeric_values()
+        reference_values = reference_column._get_numeric_values()
+
+        if len(current_values) == 0 or len(reference_values) == 0:
+            return DriftResult(
+                is_drifted=False,
+                p_value=1.0,
+                statistic=0.0,
+                threshold=threshold,
+                method=method,
+                message="Insufficient data for drift detection",
+                details={"current_count": len(current_values), "reference_count": len(reference_values)},
+            )
+
+        # Perform KS test
+        ks_stat, p_value = self._ks_test(current_values, reference_values)
+        is_drifted = p_value < threshold
+
+        ref_dataset_name = reference_column._dataset.name or reference_column._dataset.source
+        if is_drifted:
+            message = f"Distribution drift detected in '{self._name}' vs {ref_dataset_name}.{reference_column._name} (p-value: {p_value:.4f} < {threshold})"
+        else:
+            message = f"No significant drift in '{self._name}' vs {ref_dataset_name}.{reference_column._name} (p-value: {p_value:.4f})"
+
+        return DriftResult(
+            is_drifted=is_drifted,
+            p_value=p_value,
+            statistic=ks_stat,
+            threshold=threshold,
+            method=method,
+            message=message,
+            details={
+                "current_column": self._name,
+                "reference_column": reference_column._name,
+                "reference_dataset": ref_dataset_name,
+                "current_count": len(current_values),
+                "reference_count": len(reference_values),
+            },
+        )
+
+    def _get_numeric_values(self, limit: int = 10000) -> list[float]:
+        """Get numeric values from this column for statistical analysis."""
+        ref = self._dataset.engine.get_source_reference(self._dataset.source)
+        col = f'"{self._name}"'
+
+        sql = f"""
+        SELECT CAST({col} AS DOUBLE) as val
+        FROM {ref}
+        WHERE {col} IS NOT NULL
+        LIMIT {limit}
+        """
+
+        try:
+            rows = self._dataset.engine.fetch_all(sql)
+            return [float(row[0]) for row in rows if row[0] is not None]
+        except Exception:
+            return []
+
+    def _ks_test(self, data1: list[float], data2: list[float]) -> tuple[float, float]:
+        """Perform two-sample Kolmogorov-Smirnov test.
+
+        Returns (ks_statistic, p_value).
+        """
+        import math
+
+        # Sort both datasets
+        data1_sorted = sorted(data1)
+        data2_sorted = sorted(data2)
+        n1, n2 = len(data1_sorted), len(data2_sorted)
+
+        # Compute the maximum difference between empirical CDFs
+        all_values = sorted(set(data1_sorted + data2_sorted))
+
+        max_diff = 0.0
+        for val in all_values:
+            # CDF of data1 at val
+            cdf1 = sum(1 for x in data1_sorted if x <= val) / n1
+            # CDF of data2 at val
+            cdf2 = sum(1 for x in data2_sorted if x <= val) / n2
+            max_diff = max(max_diff, abs(cdf1 - cdf2))
+
+        ks_stat = max_diff
+
+        # Approximate p-value using asymptotic formula
+        # P(D > d) ≈ 2 * exp(-2 * d^2 * n1 * n2 / (n1 + n2))
+        en = math.sqrt(n1 * n2 / (n1 + n2))
+        p_value = 2.0 * math.exp(-2.0 * (ks_stat * en) ** 2)
+        p_value = min(1.0, max(0.0, p_value))
+
+        return ks_stat, p_value
 
     def get_value_counts(self, limit: int = 20) -> dict[Any, int]:
         """

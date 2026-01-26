@@ -122,6 +122,8 @@ assert orders.amount.between(0, 10000)
 | **Freshness monitoring** | ✅ Built-in | ❌ | ✅ | ❌ |
 | **Data contracts** | ✅ | ❌ | ✅ | ✅ |
 | **Row-level error details** | ✅ | ✅ | ❌ | ✅ |
+| **Reference/FK checks** | ✅ Built-in | ✅ | ✅ | ❌ |
+| **Cross-dataset validation** | ✅ Built-in | ⚠️ | ✅ | ❌ |
 | **YAML rules** | ✅ | ✅ | ✅ | ❌ |
 | **dbt integration** | ✅ | ✅ | ✅ | ❌ |
 | **Slack/Teams alerts** | ✅ | ✅ | ✅ | ❌ |
@@ -237,6 +239,37 @@ pip install duckguard[all]         # Everything
 <h3>🚀</h3>
 <b>CI/CD Ready</b><br>
 <sub>GitHub Actions & Airflow</sub>
+</td>
+</tr>
+<tr>
+<td align="center">
+<h3>🔗</h3>
+<b>Reference/FK Checks</b><br>
+<sub>Cross-dataset FK validation</sub>
+</td>
+<td align="center">
+<h3>🔀</h3>
+<b>Cross-Dataset Validation</b><br>
+<sub>Compare datasets & columns</sub>
+</td>
+<td align="center">
+<h3>⚖️</h3>
+<b>Reconciliation</b><br>
+<sub>Migration & sync validation</sub>
+</td>
+<td align="center">
+<h3>📊</h3>
+<b>Distribution Drift</b><br>
+<sub>KS-test based drift detection</sub>
+</td>
+</tr>
+<tr>
+<td align="center">
+<h3>📁</h3>
+<b>Group By Checks</b><br>
+<sub>Segmented validation</sub>
+</td>
+<td align="center" colspan="3">
 </td>
 </tr>
 </table>
@@ -489,6 +522,138 @@ validate_orders = DuckGuardOperator(
 ```
 </details>
 
+<details>
+<summary><b>🔗 Reference/FK Checks</b></summary>
+
+```python
+from duckguard import connect
+
+orders = connect("orders.parquet")
+customers = connect("customers.parquet")
+
+# Check that all customer_ids exist in customers table
+result = orders["customer_id"].exists_in(customers["id"])
+if not result.passed:
+    print(f"Found {result.actual_value} orphan records!")
+    for row in result.failed_rows:
+        print(f"  Row {row.row_number}: {row.value}")
+
+# FK check with null handling options
+result = orders["customer_id"].references(
+    customers["id"],
+    allow_nulls=True  # Nulls are OK (optional FK)
+)
+
+# Get list of orphan values for debugging
+orphans = orders["customer_id"].find_orphans(customers["id"])
+print(f"Invalid customer IDs: {orphans}")
+```
+</details>
+
+<details>
+<summary><b>🔀 Cross-Dataset Validation</b></summary>
+
+```python
+from duckguard import connect
+
+orders = connect("orders.parquet")
+backup = connect("orders_backup.parquet")
+status_lookup = connect("status_codes.csv")
+
+# Compare row counts between datasets
+result = orders.row_count_matches(backup)
+result = orders.row_count_matches(backup, tolerance=10)  # Allow small diff
+
+# Validate that column values match a lookup table
+result = orders["status"].matches_values(status_lookup["code"])
+if not result.passed:
+    print(f"Missing in lookup: {result.details['missing_in_other']}")
+    print(f"Extra in lookup: {result.details['extra_in_other']}")
+```
+</details>
+
+<details>
+<summary><b>⚖️ Reconciliation</b></summary>
+
+```python
+from duckguard import connect
+
+source = connect("orders_source.parquet")
+target = connect("orders_migrated.parquet")
+
+# Reconcile datasets using primary key
+result = source.reconcile(
+    target,
+    key_columns=["order_id"],
+    compare_columns=["amount", "status", "customer_id"]
+)
+
+if not result.passed:
+    print(f"Missing in target: {result.missing_in_target}")
+    print(f"Extra in target: {result.extra_in_target}")
+    print(f"Value mismatches: {result.value_mismatches}")
+    print(result.summary())
+
+# With numeric tolerance for floating point comparison
+result = source.reconcile(
+    target,
+    key_columns=["order_id"],
+    compare_columns=["amount"],
+    tolerance=0.01  # Allow 1% difference
+)
+```
+</details>
+
+<details>
+<summary><b>📊 Distribution Drift Detection</b></summary>
+
+```python
+from duckguard import connect
+
+baseline = connect("orders_baseline.parquet")
+current = connect("orders_current.parquet")
+
+# Detect distribution drift using KS-test
+result = current["amount"].detect_drift(baseline["amount"])
+
+if result.is_drifted:
+    print(f"Distribution drift detected!")
+    print(f"P-value: {result.p_value:.4f}")
+    print(f"KS statistic: {result.statistic:.4f}")
+
+# Custom threshold (default: 0.05)
+result = current["score"].detect_drift(
+    baseline["score"],
+    threshold=0.01  # More sensitive detection
+)
+```
+</details>
+
+<details>
+<summary><b>📁 Group By Checks</b></summary>
+
+```python
+from duckguard import connect
+
+orders = connect("orders.parquet")
+
+# Get group statistics
+stats = orders.group_by("region").stats()
+for g in stats:
+    print(f"{g['region']}: {g['row_count']} rows")
+
+# Validate row count per group
+result = orders.group_by("region").row_count_greater_than(100)
+if not result.passed:
+    for g in result.get_failed_groups():
+        print(f"Region {g.group_key} has only {g.row_count} rows")
+
+# Group by multiple columns
+result = orders.group_by(["date", "region"]).row_count_greater_than(0)
+print(f"Passed: {result.passed_groups}/{result.total_groups} groups")
+```
+</details>
+
 ---
 
 ## CLI
@@ -582,6 +747,42 @@ col.isin(['a', 'b', 'c'])     # Allowed values
 col.not_in(['x', 'y'])        # Forbidden values
 col.has_no_duplicates()       # No duplicate values
 col.value_lengths_between(1, 50)  # String length
+
+# Cross-dataset validation (return ValidationResult)
+col.exists_in(other_col)             # FK check: values exist in reference
+col.references(other_col)            # FK check with null handling options
+col.find_orphans(other_col)          # Get list of orphan values
+col.matches_values(other_col)        # Value sets match between columns
+
+# Distribution drift detection (returns DriftResult)
+col.detect_drift(other_col)          # KS-test based drift detection
+col.detect_drift(other_col, threshold=0.01)  # Custom p-value threshold
+```
+
+## Dataset Methods Reference
+
+```python
+# Properties
+dataset.row_count      # Number of rows
+dataset.columns        # List of column names
+dataset.column_count   # Number of columns
+dataset.freshness      # FreshnessResult with age info
+
+# Validation methods
+dataset.is_fresh(timedelta)              # Check data freshness
+dataset.row_count_matches(other)         # Compare row counts
+dataset.row_count_equals(other)          # Exact row count match
+dataset.score()                          # Calculate quality score
+
+# Reconciliation (returns ReconciliationResult)
+dataset.reconcile(other, key_columns)    # Full dataset comparison
+dataset.reconcile(other, key_columns, compare_columns, tolerance)
+
+# Group By (returns GroupedDataset)
+dataset.group_by("column")               # Group by single column
+dataset.group_by(["col1", "col2"])       # Group by multiple columns
+grouped.stats()                          # Get per-group statistics
+grouped.row_count_greater_than(100)      # Validate per-group row counts
 ```
 
 ---

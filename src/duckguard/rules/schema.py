@@ -60,6 +60,12 @@ class CheckType(Enum):
     # Custom SQL
     CUSTOM_SQL = "custom_sql"
 
+    # Cross-dataset / Reference checks
+    EXISTS_IN = "exists_in"              # FK check: all values exist in reference
+    REFERENCES = "references"            # FK check with options (allow_nulls, etc.)
+    MATCHES_VALUES = "matches_values"    # Column values match between datasets
+    ROW_COUNT_MATCHES = "row_count_matches"  # Row counts match between datasets
+
 
 class Severity(Enum):
     """Severity levels for rule violations."""
@@ -136,6 +142,19 @@ class Check:
             return f"{col} matches '{self.value}'" if col else f"matches '{self.value}'"
         elif self.type == CheckType.ALLOWED_VALUES or self.type == CheckType.ISIN:
             return f"{col} in {self.value}" if col else f"in {self.value}"
+        elif self.type == CheckType.EXISTS_IN:
+            ref = self.params.get("dataset", "?") + "." + self.params.get("column", "?")
+            return f"{col} exists in {ref}" if col else f"exists in {ref}"
+        elif self.type == CheckType.REFERENCES:
+            ref = self.params.get("dataset", "?") + "." + self.params.get("column", "?")
+            return f"{col} references {ref}" if col else f"references {ref}"
+        elif self.type == CheckType.MATCHES_VALUES:
+            ref = self.params.get("dataset", "?") + "." + self.params.get("column", "?")
+            return f"{col} matches values in {ref}" if col else f"matches values in {ref}"
+        elif self.type == CheckType.ROW_COUNT_MATCHES:
+            ref = self.params.get("dataset", "?")
+            tolerance = self.params.get("tolerance", 0)
+            return f"row_count matches {ref} (tolerance: {tolerance})"
 
         # Fallback
         if col:
