@@ -6,7 +6,7 @@ rules:
   - row_count > 0
   - row_count < 1000000
 
-  # Column nulls (using thresholds since we have some test nulls)
+  # Column nulls
   - order_id is not null
   - order_id is unique
   - customer_id null_percent < 10
