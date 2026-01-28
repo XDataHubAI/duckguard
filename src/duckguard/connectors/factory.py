@@ -31,7 +31,7 @@ def register_connector(connector_class: type[Connector]) -> None:
 
 
 def connect(
-    source: str,
+    source: Any,
     *,
     table: str | None = None,
     schema: str | None = None,
@@ -46,7 +46,7 @@ def connect(
     It automatically detects the source type and uses the appropriate connector.
 
     Args:
-        source: Path to file, connection string, or URL
+        source: Path to file, connection string, URL, or DataFrame (pandas/polars/pyarrow)
         table: Table name (for database connections)
         schema: Schema name (for database connections)
         database: Database name (for database connections)
@@ -60,6 +60,9 @@ def connect(
         # Connect to a CSV file
         orders = connect("data/orders.csv")
 
+        # Connect to a DataFrame
+        orders = connect(df)
+
         # Connect to a Parquet file on S3
         orders = connect("s3://bucket/orders.parquet")
 
@@ -72,6 +75,23 @@ def connect(
     Raises:
         ValueError: If no connector can handle the source
     """
+    # Handle DataFrame sources (pandas, polars, pyarrow)
+    if not isinstance(source, str):
+        # Check if it's a DataFrame-like object
+        if hasattr(source, '__dataframe__') or hasattr(source, 'to_pandas') or \
+           (hasattr(source, 'shape') and hasattr(source, 'columns')):
+            # Register DataFrame with engine
+            if engine is None:
+                engine = DuckGuardEngine.get_instance()
+
+            # Generate a unique name for the DataFrame
+            import hashlib
+            import time
+            df_name = f"df_{hashlib.md5(str(time.time()).encode()).hexdigest()[:8]}"
+
+            engine.register_dataframe(df_name, source)
+            return Dataset(source=df_name, engine=engine, name="dataframe")
+
     config = ConnectionConfig(
         source=source,
         table=table,
@@ -99,6 +119,10 @@ def connect(
 
 def _is_database_connection(source: str) -> bool:
     """Check if source is a database connection string."""
+    # Only handle string sources
+    if not isinstance(source, str):
+        return False
+
     db_prefixes = (
         "postgres://",
         "postgresql://",
@@ -143,6 +167,10 @@ def _handle_database_connection(
     engine: DuckGuardEngine | None,
 ) -> Dataset:
     """Handle database connection strings."""
+    # Validate source is a string
+    if not isinstance(source, str):
+        raise ValueError(f"Expected string source, got {type(source).__name__}")
+
     source_lower = source.lower()
 
     # PostgreSQL

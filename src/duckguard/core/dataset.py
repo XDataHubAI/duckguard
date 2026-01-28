@@ -676,6 +676,336 @@ class Dataset:
 
         return GroupedDataset(self, columns)
 
+    # =================================================================
+    # Multi-Column Validation Methods (DuckGuard 3.0)
+    # =================================================================
+
+    def expect_column_pair_satisfy(
+        self,
+        column_a: str,
+        column_b: str,
+        expression: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check that column pair satisfies expression.
+
+        Args:
+            column_a: First column name
+            column_b: Second column name
+            expression: Expression to evaluate (e.g., "A > B", "A + B = 100")
+            threshold: Maximum allowed failure rate (0.0-1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> data = connect("orders.csv")
+            >>> # Date range validation
+            >>> result = data.expect_column_pair_satisfy(
+            ...     column_a="end_date",
+            ...     column_b="start_date",
+            ...     expression="end_date >= start_date"
+            ... )
+            >>> assert result.passed
+
+            >>> # Arithmetic validation
+            >>> result = data.expect_column_pair_satisfy(
+            ...     column_a="total",
+            ...     column_b="subtotal",
+            ...     expression="total = subtotal * 1.1"
+            ... )
+        """
+        from duckguard.checks.multicolumn import MultiColumnCheckHandler
+
+        handler = MultiColumnCheckHandler()
+        return handler.execute_column_pair_satisfy(
+            dataset=self,
+            column_a=column_a,
+            column_b=column_b,
+            expression=expression,
+            threshold=threshold
+        )
+
+    def expect_columns_unique(
+        self,
+        columns: list[str],
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check that combination of columns is unique (composite key).
+
+        Args:
+            columns: List of column names forming composite key
+            threshold: Minimum required uniqueness rate (0.0-1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Two-column composite key
+            >>> result = data.expect_columns_unique(
+            ...     columns=["user_id", "session_id"]
+            ... )
+            >>> assert result.passed
+
+            >>> # Three-column composite key
+            >>> result = data.expect_columns_unique(
+            ...     columns=["year", "month", "product_id"]
+            ... )
+        """
+        from duckguard.checks.multicolumn import MultiColumnCheckHandler
+
+        handler = MultiColumnCheckHandler()
+        return handler.execute_columns_unique(
+            dataset=self,
+            columns=columns,
+            threshold=threshold
+        )
+
+    def expect_multicolumn_sum_to_equal(
+        self,
+        columns: list[str],
+        expected_sum: float,
+        threshold: float = 0.01
+    ) -> ValidationResult:
+        """Check that sum of columns equals expected value.
+
+        Args:
+            columns: List of columns to sum
+            expected_sum: Expected sum value
+            threshold: Maximum allowed deviation
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Components must sum to 100%
+            >>> result = data.expect_multicolumn_sum_to_equal(
+            ...     columns=["q1_pct", "q2_pct", "q3_pct", "q4_pct"],
+            ...     expected_sum=100.0
+            ... )
+            >>> assert result.passed
+
+            >>> # Budget allocation check
+            >>> result = data.expect_multicolumn_sum_to_equal(
+            ...     columns=["marketing", "sales", "r_and_d"],
+            ...     expected_sum=data.total_budget
+            ... )
+        """
+        from duckguard.checks.multicolumn import MultiColumnCheckHandler
+
+        handler = MultiColumnCheckHandler()
+        return handler.execute_multicolumn_sum_equal(
+            dataset=self,
+            columns=columns,
+            expected_sum=expected_sum,
+            threshold=threshold
+        )
+
+    # =================================================================
+    # Query-Based Validation Methods (DuckGuard 3.0)
+    # =================================================================
+
+    def expect_query_to_return_no_rows(
+        self,
+        query: str,
+        message: str | None = None
+    ) -> ValidationResult:
+        """Check that custom SQL query returns no rows (finds no violations).
+
+        Use case: Write a query that finds violations. The check passes if
+        the query returns no rows (no violations found).
+
+        Args:
+            query: SQL SELECT query (use 'table' to reference the dataset)
+            message: Optional custom message
+
+        Returns:
+            ValidationResult (passed if query returns 0 rows)
+
+        Examples:
+            >>> data = connect("orders.csv")
+            >>> # Find invalid totals (total < subtotal)
+            >>> result = data.expect_query_to_return_no_rows(
+            ...     query="SELECT * FROM table WHERE total < subtotal"
+            ... )
+            >>> assert result.passed
+
+            >>> # Find future dates
+            >>> result = data.expect_query_to_return_no_rows(
+            ...     query="SELECT * FROM table WHERE order_date > CURRENT_DATE"
+            ... )
+
+        Security:
+            - Query is validated to prevent SQL injection
+            - Only SELECT queries allowed
+            - READ-ONLY mode enforced
+            - 30-second timeout
+            - 10,000 row result limit
+        """
+        from duckguard.checks.query_based import QueryCheckHandler
+
+        handler = QueryCheckHandler()
+        return handler.execute_query_no_rows(
+            dataset=self,
+            query=query,
+            message=message
+        )
+
+    def expect_query_to_return_rows(
+        self,
+        query: str,
+        message: str | None = None
+    ) -> ValidationResult:
+        """Check that custom SQL query returns at least one row.
+
+        Use case: Ensure expected data exists in the dataset.
+
+        Args:
+            query: SQL SELECT query (use 'table' to reference the dataset)
+            message: Optional custom message
+
+        Returns:
+            ValidationResult (passed if query returns > 0 rows)
+
+        Examples:
+            >>> data = connect("products.csv")
+            >>> # Ensure we have active products
+            >>> result = data.expect_query_to_return_rows(
+            ...     query="SELECT * FROM table WHERE status = 'active'"
+            ... )
+            >>> assert result.passed
+
+            >>> # Ensure we have recent data
+            >>> result = data.expect_query_to_return_rows(
+            ...     query="SELECT * FROM table WHERE created_at >= CURRENT_DATE - 7"
+            ... )
+
+        Security:
+            - Query is validated to prevent SQL injection
+            - Only SELECT queries allowed
+            - READ-ONLY mode enforced
+        """
+        from duckguard.checks.query_based import QueryCheckHandler
+
+        handler = QueryCheckHandler()
+        return handler.execute_query_returns_rows(
+            dataset=self,
+            query=query,
+            message=message
+        )
+
+    def expect_query_result_to_equal(
+        self,
+        query: str,
+        expected: Any,
+        tolerance: float | None = None,
+        message: str | None = None
+    ) -> ValidationResult:
+        """Check that custom SQL query returns a specific value.
+
+        Use case: Aggregate validation (COUNT, SUM, AVG, etc.)
+
+        Args:
+            query: SQL query returning single value (use 'table' to reference dataset)
+            expected: Expected value
+            tolerance: Optional tolerance for numeric comparisons
+            message: Optional custom message
+
+        Returns:
+            ValidationResult (passed if query result equals expected)
+
+        Examples:
+            >>> data = connect("orders.csv")
+            >>> # Check pending order count
+            >>> result = data.expect_query_result_to_equal(
+            ...     query="SELECT COUNT(*) FROM table WHERE status = 'pending'",
+            ...     expected=0
+            ... )
+            >>> assert result.passed
+
+            >>> # Check average with tolerance
+            >>> result = data.expect_query_result_to_equal(
+            ...     query="SELECT AVG(price) FROM table",
+            ...     expected=100.0,
+            ...     tolerance=5.0
+            ... )
+
+            >>> # Check sum constraint
+            >>> result = data.expect_query_result_to_equal(
+            ...     query="SELECT SUM(quantity) FROM table WHERE category = 'electronics'",
+            ...     expected=1000
+            ... )
+
+        Security:
+            - Query must return exactly 1 row with 1 column
+            - Query is validated to prevent SQL injection
+        """
+        from duckguard.checks.query_based import QueryCheckHandler
+
+        handler = QueryCheckHandler()
+        return handler.execute_query_result_equals(
+            dataset=self,
+            query=query,
+            expected=expected,
+            tolerance=tolerance,
+            message=message
+        )
+
+    def expect_query_result_to_be_between(
+        self,
+        query: str,
+        min_value: float,
+        max_value: float,
+        message: str | None = None
+    ) -> ValidationResult:
+        """Check that custom SQL query result is within a range.
+
+        Use case: Metric validation (e.g., average must be between X and Y)
+
+        Args:
+            query: SQL query returning single numeric value
+            min_value: Minimum allowed value (inclusive)
+            max_value: Maximum allowed value (inclusive)
+            message: Optional custom message
+
+        Returns:
+            ValidationResult (passed if min_value <= result <= max_value)
+
+        Examples:
+            >>> data = connect("metrics.csv")
+            >>> # Average price in range
+            >>> result = data.expect_query_result_to_be_between(
+            ...     query="SELECT AVG(price) FROM table",
+            ...     min_value=10.0,
+            ...     max_value=1000.0
+            ... )
+            >>> assert result.passed
+
+            >>> # Null rate validation
+            >>> result = data.expect_query_result_to_be_between(
+            ...     query='''
+            ...         SELECT (COUNT(*) FILTER (WHERE price IS NULL)) * 100.0 / COUNT(*)
+            ...         FROM table
+            ...     ''',
+            ...     min_value=0.0,
+            ...     max_value=5.0  # Max 5% nulls
+            ... )
+
+        Security:
+            - Query must return exactly 1 row with 1 numeric column
+            - Query is validated to prevent SQL injection
+        """
+        from duckguard.checks.query_based import QueryCheckHandler
+
+        handler = QueryCheckHandler()
+        return handler.execute_query_result_between(
+            dataset=self,
+            query=query,
+            min_value=min_value,
+            max_value=max_value,
+            message=message
+        )
+
 
 class GroupedDataset:
     """

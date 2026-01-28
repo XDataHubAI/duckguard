@@ -38,6 +38,118 @@ assert orders.status.isin(['pending', 'shipped', 'delivered'])
 
 ---
 
+## What's New in 3.0
+
+DuckGuard 3.0 introduces **23 new check types** and powerful validation capabilities that make complex data quality checks simple.
+
+### Conditional Expectations
+
+Apply validation rules only when certain conditions are met:
+
+```python
+# Validate state is not null only for US orders
+orders.state.not_null_when("country = 'USA'")
+
+# Check shipping_cost only for orders that were shipped
+orders.shipping_cost.greater_than_when(0, "status = 'shipped'")
+
+# Require tracking_number for expedited orders
+orders.tracking_number.not_null_when("shipping_type = 'expedited'")
+```
+
+### Multi-Column Expectations
+
+Validate relationships between columns with cross-column checks:
+
+```python
+# Ensure end_date comes after start_date
+orders.expect_column_pair_satisfy("end_date", "start_date", "end_date >= start_date")
+
+# Validate discount doesn't exceed original price
+orders.expect_column_pair_satisfy("discount", "price", "discount <= price")
+
+# Check that total matches sum of components
+orders.expect_column_pair_satisfy("total", "subtotal", "total = subtotal + tax")
+```
+
+### Query-Based Expectations
+
+Run custom SQL queries for unlimited flexibility:
+
+```python
+# Ensure no negative amounts
+orders.expect_query_to_return_no_rows("SELECT * FROM table WHERE amount < 0")
+
+# Validate business rules
+orders.expect_query_to_return_no_rows(
+    "SELECT * FROM table WHERE status = 'shipped' AND tracking_number IS NULL"
+)
+
+# Check referential integrity with custom logic
+orders.expect_query_result_equals(
+    "SELECT COUNT(*) FROM orders WHERE customer_id NOT IN (SELECT id FROM customers)",
+    0
+)
+```
+
+### Distributional Checks
+
+Test if data follows expected statistical distributions:
+
+```python
+# Test for normal distribution
+data.values.expect_distribution_normal()
+
+# Test for uniform distribution
+data.values.expect_distribution_uniform()
+
+# Chi-square goodness of fit test
+data.category.expect_distribution_chi_square(expected_freq={'A': 0.5, 'B': 0.3, 'C': 0.2})
+
+# Kolmogorov-Smirnov test for distribution matching
+current.amount.expect_distribution_ks_test(baseline.amount)
+```
+
+### Enhanced Profiling
+
+Four new profiling modules for deeper data insights:
+
+```python
+from duckguard.profiling import (
+    DistributionProfiler,   # Statistical distributions and shape analysis
+    CorrelationProfiler,    # Column relationships and dependencies
+    PatternProfiler,        # Detect common patterns in text data
+    TimeSeriesProfiler      # Temporal patterns and trends
+)
+
+# Analyze distributions
+dist_profile = DistributionProfiler().profile(orders)
+print(f"Amount distribution: {dist_profile['amount'].distribution_type}")  # 'normal', 'skewed', etc.
+
+# Discover correlations
+corr_profile = CorrelationProfiler().profile(orders)
+print(f"Highly correlated pairs: {corr_profile.high_correlations}")
+
+# Find patterns in text columns
+pattern_profile = PatternProfiler().profile(orders)
+print(f"Email pattern: {pattern_profile['email'].common_pattern}")  # Regex pattern
+
+# Analyze time series
+ts_profile = TimeSeriesProfiler().profile(orders, date_column='order_date')
+print(f"Seasonality detected: {ts_profile.has_seasonality}")
+```
+
+### More Validation Power
+
+DuckGuard 3.0 adds 23 new check types including:
+- **Conditional validations**: `not_null_when()`, `between_when()`, `isin_when()`
+- **Multi-column checks**: `expect_column_pair_satisfy()`, `expect_column_sum_equals()`
+- **Query-based**: `expect_query_to_return_no_rows()`, `expect_query_result_equals()`
+- **Distribution tests**: `expect_distribution_normal()`, `expect_distribution_chi_square()`
+- **Advanced string**: `expect_column_values_to_match_strftime()`, `expect_column_values_to_be_json()`
+
+---
+
 ## Why DuckGuard?
 
 ### The Problem

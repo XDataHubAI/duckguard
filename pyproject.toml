@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "duckguard"
-version = "2.3.0"
+version = "3.0.0"
 description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
 readme = "README.md"
 license = "Elastic-2.0"
@@ -83,6 +83,9 @@ kafka = ["kafka-python>=2.0.0"]
 # AI/LLM features
 llm = ["openai>=1.0.0", "anthropic>=0.18.0"]
 
+# Statistical tests (distributional checks)
+statistics = ["scipy>=1.11.0"]
+
 # Report generation (HTML/PDF)
 reports = [
     "jinja2>=3.0.0",
@@ -107,7 +110,7 @@ dev = [
 ]
 
 # Everything
-all = ["duckguard[databases,llm,reports,airflow]"]
+all = ["duckguard[databases,llm,statistics,reports,airflow]"]
 
 [project.scripts]
 duckguard = "duckguard.cli.main:app"
@@ -144,7 +147,18 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]  # Ignore line-too-long for now
+ignore = [
+    "E501",  # Ignore line-too-long for now
+    "N806",  # Allow uppercase variable names for statistical conventions (Q1, Q3, IQR, X)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow imports in try/except blocks for library availability detection
+"src/duckguard/checks/distributional.py" = ["F401"]
+"src/duckguard/profiler/*.py" = ["F401"]
+"tests/test_*.py" = ["F401"]
+# Ignore notebook formatting issues
+"*.ipynb" = ["E402", "W291", "W293"]
 
 [tool.mypy]
 python_version = "3.10"

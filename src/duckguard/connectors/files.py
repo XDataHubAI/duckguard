@@ -65,6 +65,10 @@ class FileConnector(Connector):
     @classmethod
     def can_handle(cls, source: str) -> bool:
         """Check if this connector can handle the source."""
+        # Only handle string paths
+        if not isinstance(source, str):
+            return False
+
         # Check for file extensions
         path = Path(source)
         ext = path.suffix.lower()
@@ -99,7 +103,7 @@ class S3Connector(FileConnector):
     @classmethod
     def can_handle(cls, source: str) -> bool:
         """Check if this is an S3 path."""
-        return source.lower().startswith("s3://")
+        return isinstance(source, str) and source.lower().startswith("s3://")
 
     @classmethod
     def get_priority(cls) -> int:
@@ -113,7 +117,7 @@ class GCSConnector(FileConnector):
     @classmethod
     def can_handle(cls, source: str) -> bool:
         """Check if this is a GCS path."""
-        return source.lower().startswith(("gs://", "gcs://"))
+        return isinstance(source, str) and source.lower().startswith(("gs://", "gcs://"))
 
     @classmethod
     def get_priority(cls) -> int:
@@ -127,7 +131,7 @@ class AzureConnector(FileConnector):
     @classmethod
     def can_handle(cls, source: str) -> bool:
         """Check if this is an Azure path."""
-        return source.lower().startswith(("az://", "abfs://"))
+        return isinstance(source, str) and source.lower().startswith(("az://", "abfs://"))
 
     @classmethod
     def get_priority(cls) -> int:

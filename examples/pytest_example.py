@@ -4,6 +4,7 @@ Run with: pytest examples/pytest_example.py -v
 """
 
 import pytest
+
 from duckguard import connect
 
 

@@ -66,6 +66,37 @@ class CheckType(Enum):
     MATCHES_VALUES = "matches_values"    # Column values match between datasets
     ROW_COUNT_MATCHES = "row_count_matches"  # Row counts match between datasets
 
+    # Conditional checks (DuckGuard 3.0)
+    NOT_NULL_WHEN = "not_null_when"      # Not null when condition is true
+    UNIQUE_WHEN = "unique_when"          # Unique when condition is true
+    BETWEEN_WHEN = "between_when"        # Between min/max when condition is true
+    ISIN_WHEN = "isin_when"              # In allowed values when condition is true
+    PATTERN_WHEN = "pattern_when"        # Matches pattern when condition is true
+
+    # Multi-column checks (DuckGuard 3.0)
+    COLUMN_PAIR_SATISFY = "column_pair_satisfy"      # Column pair satisfies expression
+    MULTICOLUMN_UNIQUE = "multicolumn_unique"        # Composite uniqueness
+    MULTICOLUMN_SUM = "multicolumn_sum"              # Sum constraint
+    COLUMN_A_GT_B = "column_a_gt_b"                  # A > B
+    COLUMN_A_GTE_B = "column_a_gte_b"                # A >= B
+    COLUMN_A_LT_B = "column_a_lt_b"                  # A < B
+    COLUMN_A_LTE_B = "column_a_lte_b"                # A <= B
+    COLUMN_A_EQ_B = "column_a_eq_b"                  # A = B
+
+    # Query-based checks (DuckGuard 3.0)
+    QUERY_NO_ROWS = "query_no_rows"                  # Query returns no rows
+    QUERY_RETURNS_ROWS = "query_returns_rows"        # Query returns at least one row
+    QUERY_RESULT_EQUALS = "query_result_equals"      # Query result equals expected value
+    QUERY_RESULT_BETWEEN = "query_result_between"    # Query result in range
+    QUERY_RESULT_GT = "query_result_gt"              # Query result > threshold
+    QUERY_RESULT_LT = "query_result_lt"              # Query result < threshold
+
+    # Distributional checks (DuckGuard 3.0)
+    DISTRIBUTION_NORMAL = "distribution_normal"      # Test for normal distribution
+    DISTRIBUTION_UNIFORM = "distribution_uniform"    # Test for uniform distribution
+    DISTRIBUTION_KS_TEST = "distribution_ks_test"    # Kolmogorov-Smirnov test
+    DISTRIBUTION_CHI_SQUARE = "distribution_chi_square"  # Chi-square goodness-of-fit test
+
 
 class Severity(Enum):
     """Severity levels for rule violations."""

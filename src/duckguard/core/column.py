@@ -1002,6 +1002,378 @@ class Column:
         rows = self._dataset.engine.fetch_all(sql)
         return {row[0]: row[1] for row in rows}
 
+    # =====================================================================
+    # Conditional Validation Methods (DuckGuard 3.0)
+    # =====================================================================
+
+    def not_null_when(
+        self,
+        condition: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check column is not null when condition is true.
+
+        This enables sophisticated conditional validation like:
+        - "State must not be null when country = 'USA'"
+        - "Phone is required when contact_method = 'phone'"
+
+        Args:
+            condition: SQL WHERE clause condition (without WHERE keyword)
+            threshold: Maximum allowed non-null rate (0.0 to 1.0, default 1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Raises:
+            ValidationError: If condition is invalid or contains forbidden SQL
+
+        Examples:
+            >>> data = connect("customers.csv")
+            >>> # State required for US customers
+            >>> result = data.state.not_null_when("country = 'USA'")
+            >>> assert result.passed
+
+            >>> # Email required for registered users
+            >>> result = data.email.not_null_when("user_type = 'registered'")
+            >>> assert result.passed
+
+        Security:
+            Conditions are validated to prevent SQL injection. Only SELECT
+            queries with WHERE clauses are allowed.
+        """
+        from duckguard.checks.conditional import ConditionalCheckHandler
+
+        handler = ConditionalCheckHandler()
+        return handler.execute_not_null_when(
+            dataset=self._dataset,
+            column=self._name,
+            condition=condition,
+            threshold=threshold
+        )
+
+    def unique_when(
+        self,
+        condition: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check column is unique when condition is true.
+
+        Args:
+            condition: SQL WHERE clause condition (without WHERE keyword)
+            threshold: Minimum required uniqueness rate (0.0 to 1.0, default 1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Order IDs must be unique for completed orders
+            >>> result = data.order_id.unique_when("status = 'completed'")
+            >>> assert result.passed
+
+            >>> # Transaction IDs unique for successful transactions
+            >>> result = data.txn_id.unique_when("success = true")
+            >>> assert result.passed
+        """
+        from duckguard.checks.conditional import ConditionalCheckHandler
+
+        handler = ConditionalCheckHandler()
+        return handler.execute_unique_when(
+            dataset=self._dataset,
+            column=self._name,
+            condition=condition,
+            threshold=threshold
+        )
+
+    def between_when(
+        self,
+        min_val: float,
+        max_val: float,
+        condition: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check column is between min and max when condition is true.
+
+        Args:
+            min_val: Minimum allowed value
+            max_val: Maximum allowed value
+            condition: SQL WHERE clause condition (without WHERE keyword)
+            threshold: Maximum allowed failure rate (0.0 to 1.0, default 1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Discount between 0-50% for standard customers
+            >>> result = data.discount.between_when(
+            ...     min_val=0,
+            ...     max_val=50,
+            ...     condition="customer_tier = 'standard'"
+            ... )
+            >>> assert result.passed
+
+            >>> # Age between 18-65 for employees
+            >>> result = data.age.between_when(18, 65, "type = 'employee'")
+            >>> assert result.passed
+        """
+        from duckguard.checks.conditional import ConditionalCheckHandler
+
+        handler = ConditionalCheckHandler()
+        return handler.execute_between_when(
+            dataset=self._dataset,
+            column=self._name,
+            min_value=min_val,
+            max_value=max_val,
+            condition=condition,
+            threshold=threshold
+        )
+
+    def isin_when(
+        self,
+        allowed_values: list[Any],
+        condition: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check column is in allowed values when condition is true.
+
+        Args:
+            allowed_values: List of allowed values
+            condition: SQL WHERE clause condition (without WHERE keyword)
+            threshold: Maximum allowed failure rate (0.0 to 1.0, default 1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Status must be specific values for paid orders
+            >>> result = data.status.isin_when(
+            ...     allowed_values=['shipped', 'delivered'],
+            ...     condition="payment_status = 'paid'"
+            ... )
+            >>> assert result.passed
+
+            >>> # Category restricted for active products
+            >>> result = data.category.isin_when(
+            ...     ['A', 'B', 'C'],
+            ...     "is_active = true"
+            ... )
+            >>> assert result.passed
+        """
+        from duckguard.checks.conditional import ConditionalCheckHandler
+
+        handler = ConditionalCheckHandler()
+        return handler.execute_isin_when(
+            dataset=self._dataset,
+            column=self._name,
+            allowed_values=allowed_values,
+            condition=condition,
+            threshold=threshold
+        )
+
+    def matches_when(
+        self,
+        pattern: str,
+        condition: str,
+        threshold: float = 1.0
+    ) -> ValidationResult:
+        """Check column matches pattern when condition is true.
+
+        Args:
+            pattern: Regular expression pattern to match
+            condition: SQL WHERE clause condition (without WHERE keyword)
+            threshold: Maximum allowed failure rate (0.0 to 1.0, default 1.0)
+
+        Returns:
+            ValidationResult with pass/fail status
+
+        Examples:
+            >>> # Email format required for email notifications
+            >>> result = data.contact.matches_when(
+            ...     pattern=r'^[\\w.-]+@[\\w.-]+\\.\\w+$',
+            ...     condition="notification_type = 'email'"
+            ... )
+            >>> assert result.passed
+
+            >>> # Phone format required for SMS
+            >>> result = data.contact.matches_when(
+            ...     pattern=r'^\\+?[0-9]{10,15}$',
+            ...     condition="notification_type = 'sms'"
+            ... )
+            >>> assert result.passed
+        """
+        from duckguard.checks.conditional import ConditionalCheckHandler
+
+        handler = ConditionalCheckHandler()
+        return handler.execute_pattern_when(
+            dataset=self._dataset,
+            column=self._name,
+            pattern=pattern,
+            condition=condition,
+            threshold=threshold
+        )
+
+    # =================================================================
+    # Distributional Checks (DuckGuard 3.0)
+    # =================================================================
+
+    def expect_distribution_normal(
+        self,
+        significance_level: float = 0.05
+    ) -> ValidationResult:
+        """Check if column data follows a normal distribution.
+
+        Uses Kolmogorov-Smirnov test comparing data to fitted normal distribution.
+
+        Args:
+            significance_level: Significance level for test (default 0.05)
+
+        Returns:
+            ValidationResult (passed if p-value > significance_level)
+
+        Examples:
+            >>> # Test if temperature measurements are normally distributed
+            >>> result = data.temperature.expect_distribution_normal()
+            >>> assert result.passed
+
+            >>> # Use stricter significance level
+            >>> result = data.measurement.expect_distribution_normal(
+            ...     significance_level=0.01
+            ... )
+
+        Note:
+            Requires scipy: pip install 'duckguard[statistics]'
+            Requires minimum 30 samples for reliable results.
+        """
+        from duckguard.checks.distributional import DistributionalCheckHandler
+
+        handler = DistributionalCheckHandler()
+        return handler.execute_distribution_normal(
+            dataset=self._dataset,
+            column=self._name,
+            significance_level=significance_level
+        )
+
+    def expect_distribution_uniform(
+        self,
+        significance_level: float = 0.05
+    ) -> ValidationResult:
+        """Check if column data follows a uniform distribution.
+
+        Uses Kolmogorov-Smirnov test comparing data to uniform distribution.
+
+        Args:
+            significance_level: Significance level for test (default 0.05)
+
+        Returns:
+            ValidationResult (passed if p-value > significance_level)
+
+        Examples:
+            >>> # Test if random numbers are uniformly distributed
+            >>> result = data.random_value.expect_distribution_uniform()
+            >>> assert result.passed
+
+            >>> # Test dice rolls for fairness
+            >>> result = data.dice_roll.expect_distribution_uniform()
+
+        Note:
+            Requires scipy: pip install 'duckguard[statistics]'
+            Requires minimum 30 samples for reliable results.
+        """
+        from duckguard.checks.distributional import DistributionalCheckHandler
+
+        handler = DistributionalCheckHandler()
+        return handler.execute_distribution_uniform(
+            dataset=self._dataset,
+            column=self._name,
+            significance_level=significance_level
+        )
+
+    def expect_ks_test(
+        self,
+        distribution: str = "norm",
+        significance_level: float = 0.05
+    ) -> ValidationResult:
+        """Perform Kolmogorov-Smirnov test for specified distribution.
+
+        Args:
+            distribution: Distribution name ('norm', 'uniform', 'expon', etc.)
+            significance_level: Significance level for test (default 0.05)
+
+        Returns:
+            ValidationResult (passed if p-value > significance_level)
+
+        Examples:
+            >>> # Test for normal distribution
+            >>> result = data.values.expect_ks_test(distribution='norm')
+            >>> assert result.passed
+
+            >>> # Test for exponential distribution
+            >>> result = data.wait_times.expect_ks_test(
+            ...     distribution='expon',
+            ...     significance_level=0.01
+            ... )
+
+        Note:
+            Requires scipy: pip install 'duckguard[statistics]'
+            Supported distributions: norm, uniform, expon, gamma, beta, etc.
+        """
+        from duckguard.checks.distributional import DistributionalCheckHandler
+
+        handler = DistributionalCheckHandler()
+        return handler.execute_ks_test(
+            dataset=self._dataset,
+            column=self._name,
+            distribution=distribution,
+            significance_level=significance_level
+        )
+
+    def expect_chi_square_test(
+        self,
+        expected_frequencies: dict | None = None,
+        significance_level: float = 0.05
+    ) -> ValidationResult:
+        """Perform chi-square goodness-of-fit test for categorical data.
+
+        Tests if observed frequencies match expected frequencies.
+
+        Args:
+            expected_frequencies: Dict mapping categories to expected frequencies
+                                  If None, assumes uniform distribution
+            significance_level: Significance level for test (default 0.05)
+
+        Returns:
+            ValidationResult (passed if p-value > significance_level)
+
+        Examples:
+            >>> # Test if dice is fair (uniform distribution)
+            >>> result = data.dice_roll.expect_chi_square_test()
+            >>> assert result.passed
+
+            >>> # Test with specific expected frequencies
+            >>> expected = {1: 1/6, 2: 1/6, 3: 1/6, 4: 1/6, 5: 1/6, 6: 1/6}
+            >>> result = data.dice_roll.expect_chi_square_test(
+            ...     expected_frequencies=expected
+            ... )
+
+            >>> # Test categorical distribution
+            >>> expected = {'A': 0.5, 'B': 0.3, 'C': 0.2}
+            >>> result = data.category.expect_chi_square_test(
+            ...     expected_frequencies=expected
+            ... )
+
+        Note:
+            Requires scipy: pip install 'duckguard[statistics]'
+            Requires minimum 30 samples for reliable results.
+        """
+        from duckguard.checks.distributional import DistributionalCheckHandler
+
+        handler = DistributionalCheckHandler()
+        return handler.execute_chi_square_test(
+            dataset=self._dataset,
+            column=self._name,
+            expected_frequencies=expected_frequencies,
+            significance_level=significance_level
+        )
+
     def clear_cache(self) -> None:
         """Clear cached statistics."""
         self._stats_cache = None

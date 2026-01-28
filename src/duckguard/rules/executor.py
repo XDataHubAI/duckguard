@@ -248,6 +248,26 @@ class RuleExecutor:
                 CheckType.MAX_LENGTH: self._check_max_length,
                 CheckType.ALLOWED_VALUES: self._check_allowed_values,
                 CheckType.ISIN: self._check_allowed_values,
+                # Conditional checks (DuckGuard 3.0)
+                CheckType.NOT_NULL_WHEN: self._check_not_null_when,
+                CheckType.UNIQUE_WHEN: self._check_unique_when,
+                CheckType.BETWEEN_WHEN: self._check_between_when,
+                CheckType.ISIN_WHEN: self._check_isin_when,
+                CheckType.PATTERN_WHEN: self._check_pattern_when,
+                # Multi-column checks (DuckGuard 3.0)
+                CheckType.COLUMN_PAIR_SATISFY: self._check_column_pair_satisfy,
+                CheckType.MULTICOLUMN_UNIQUE: self._check_multicolumn_unique,
+                CheckType.MULTICOLUMN_SUM: self._check_multicolumn_sum,
+                # Query-based checks (DuckGuard 3.0)
+                CheckType.QUERY_NO_ROWS: self._check_query_no_rows,
+                CheckType.QUERY_RETURNS_ROWS: self._check_query_returns_rows,
+                CheckType.QUERY_RESULT_EQUALS: self._check_query_result_equals,
+                CheckType.QUERY_RESULT_BETWEEN: self._check_query_result_between,
+                # Distributional checks (DuckGuard 3.0)
+                CheckType.DISTRIBUTION_NORMAL: self._check_distribution_normal,
+                CheckType.DISTRIBUTION_UNIFORM: self._check_distribution_uniform,
+                CheckType.DISTRIBUTION_KS_TEST: self._check_ks_test,
+                CheckType.DISTRIBUTION_CHI_SQUARE: self._check_chi_square_test,
             }
 
             handler = check_handlers.get(check.type)
@@ -571,6 +591,628 @@ class RuleExecutor:
             passed=result.passed,
             actual_value=result.actual_value,
             expected_value=f"in {allowed}",
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    # =================================================================
+    # Conditional Check Handlers (DuckGuard 3.0)
+    # =================================================================
+
+    def _check_not_null_when(self, col, check: Check) -> CheckResult:
+        """Check column is not null when condition is true."""
+        condition = check.params.get("condition")
+        if not condition:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="not null when condition",
+                message="Missing 'condition' parameter for not_null_when check",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+        result = col.not_null_when(condition=condition, threshold=threshold)
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_unique_when(self, col, check: Check) -> CheckResult:
+        """Check column is unique when condition is true."""
+        condition = check.params.get("condition")
+        if not condition:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="unique when condition",
+                message="Missing 'condition' parameter for unique_when check",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+        result = col.unique_when(condition=condition, threshold=threshold)
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_between_when(self, col, check: Check) -> CheckResult:
+        """Check column is between min/max when condition is true."""
+        condition = check.params.get("condition")
+        if not condition:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="between when condition",
+                message="Missing 'condition' parameter for between_when check",
+                severity=check.severity,
+            )
+
+        # Get min/max from check value (expected to be a tuple/list)
+        if isinstance(check.value, (list, tuple)) and len(check.value) == 2:
+            min_val, max_val = check.value
+        else:
+            min_val = check.params.get("min_value")
+            max_val = check.params.get("max_value")
+
+        if min_val is None or max_val is None:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value=f"between {min_val} and {max_val} when condition",
+                message="Missing 'min_value' or 'max_value' for between_when check",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+        result = col.between_when(
+            min_val=min_val,
+            max_val=max_val,
+            condition=condition,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_isin_when(self, col, check: Check) -> CheckResult:
+        """Check column is in allowed values when condition is true."""
+        condition = check.params.get("condition")
+        if not condition:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="isin when condition",
+                message="Missing 'condition' parameter for isin_when check",
+                severity=check.severity,
+            )
+
+        allowed_values = check.value
+        if not isinstance(allowed_values, list):
+            allowed_values = [allowed_values]
+
+        threshold = check.params.get("threshold", 1.0)
+        result = col.isin_when(
+            allowed_values=allowed_values,
+            condition=condition,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_pattern_when(self, col, check: Check) -> CheckResult:
+        """Check column matches pattern when condition is true."""
+        condition = check.params.get("condition")
+        if not condition:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="matches pattern when condition",
+                message="Missing 'condition' parameter for pattern_when check",
+                severity=check.severity,
+            )
+
+        pattern = check.value
+        if not pattern:
+            return CheckResult(
+                check=check,
+                column=col.name,
+                passed=False,
+                actual_value=None,
+                expected_value="matches pattern when condition",
+                message="Missing pattern value for pattern_when check",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+        result = col.matches_when(
+            pattern=pattern,
+            condition=condition,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    # =================================================================
+    # Multi-Column Check Handlers (DuckGuard 3.0)
+    # =================================================================
+
+    def _check_column_pair_satisfy(self, col, check: Check) -> CheckResult:
+        """Check that column pair satisfies expression.
+
+        Note: Multi-column checks are dataset-level, but called with col context.
+        """
+        column_a = check.params.get("column_a")
+        column_b = check.params.get("column_b")
+        expression = check.params.get("expression") or check.value
+
+        if not column_a or not column_b:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="column pair satisfaction",
+                message="Missing 'column_a' or 'column_b' parameter",
+                severity=check.severity,
+            )
+
+        if not expression:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="column pair satisfaction",
+                message="Missing 'expression' parameter",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+
+        # Get dataset from column context
+        dataset = col._dataset
+
+        result = dataset.expect_column_pair_satisfy(
+            column_a=column_a,
+            column_b=column_b,
+            expression=expression,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_multicolumn_unique(self, col, check: Check) -> CheckResult:
+        """Check that combination of columns is unique."""
+        columns = check.params.get("columns") or check.value
+
+        if not columns or not isinstance(columns, list):
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="composite uniqueness",
+                message="Missing or invalid 'columns' parameter (expected list)",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 1.0)
+        dataset = col._dataset
+
+        result = dataset.expect_columns_unique(
+            columns=columns,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_multicolumn_sum(self, col, check: Check) -> CheckResult:
+        """Check that sum of columns equals expected value."""
+        columns = check.params.get("columns")
+        expected_sum = check.params.get("expected_sum") or check.value
+
+        if not columns or not isinstance(columns, list):
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="multicolumn sum",
+                message="Missing or invalid 'columns' parameter (expected list)",
+                severity=check.severity,
+            )
+
+        if expected_sum is None:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="multicolumn sum",
+                message="Missing 'expected_sum' parameter",
+                severity=check.severity,
+            )
+
+        threshold = check.params.get("threshold", 0.01)
+        dataset = col._dataset
+
+        result = dataset.expect_multicolumn_sum_to_equal(
+            columns=columns,
+            expected_sum=expected_sum,
+            threshold=threshold
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    # Query-based check handlers (DuckGuard 3.0)
+    def _check_query_no_rows(self, col, check: Check) -> CheckResult:
+        """Check that custom SQL query returns no rows."""
+        query = check.params.get("query") or check.value
+
+        if not query:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="no rows",
+                message="Missing 'query' parameter",
+                severity=check.severity,
+            )
+
+        dataset = col._dataset if col else None
+        if not dataset:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="no rows",
+                message="Dataset not available for query execution",
+                severity=check.severity,
+            )
+
+        message = check.params.get("message")
+
+        result = dataset.expect_query_to_return_no_rows(
+            query=query,
+            message=message
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_query_returns_rows(self, col, check: Check) -> CheckResult:
+        """Check that custom SQL query returns at least one row."""
+        query = check.params.get("query") or check.value
+
+        if not query:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="> 0 rows",
+                message="Missing 'query' parameter",
+                severity=check.severity,
+            )
+
+        dataset = col._dataset if col else None
+        if not dataset:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value="> 0 rows",
+                message="Dataset not available for query execution",
+                severity=check.severity,
+            )
+
+        message = check.params.get("message")
+
+        result = dataset.expect_query_to_return_rows(
+            query=query,
+            message=message
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_query_result_equals(self, col, check: Check) -> CheckResult:
+        """Check that custom SQL query result equals expected value."""
+        query = check.params.get("query")
+        expected = check.params.get("expected") or check.value
+
+        if not query:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=expected,
+                message="Missing 'query' parameter",
+                severity=check.severity,
+            )
+
+        if expected is None:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=None,
+                message="Missing 'expected' parameter",
+                severity=check.severity,
+            )
+
+        dataset = col._dataset if col else None
+        if not dataset:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=expected,
+                message="Dataset not available for query execution",
+                severity=check.severity,
+            )
+
+        tolerance = check.params.get("tolerance")
+        message = check.params.get("message")
+
+        result = dataset.expect_query_result_to_equal(
+            query=query,
+            expected=expected,
+            tolerance=tolerance,
+            message=message
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_query_result_between(self, col, check: Check) -> CheckResult:
+        """Check that custom SQL query result is within range."""
+        query = check.params.get("query")
+        min_value = check.params.get("min_value")
+        max_value = check.params.get("max_value")
+
+        if not query:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=f"between {min_value} and {max_value}",
+                message="Missing 'query' parameter",
+                severity=check.severity,
+            )
+
+        if min_value is None or max_value is None:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=f"between {min_value} and {max_value}",
+                message="Missing 'min_value' or 'max_value' parameter",
+                severity=check.severity,
+            )
+
+        dataset = col._dataset if col else None
+        if not dataset:
+            return CheckResult(
+                check=check,
+                column=None,
+                passed=False,
+                actual_value=None,
+                expected_value=f"between {min_value} and {max_value}",
+                message="Dataset not available for query execution",
+                severity=check.severity,
+            )
+
+        message = check.params.get("message")
+
+        result = dataset.expect_query_result_to_be_between(
+            query=query,
+            min_value=min_value,
+            max_value=max_value,
+            message=message
+        )
+
+        return CheckResult(
+            check=check,
+            column=None,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    # Distributional check handlers (DuckGuard 3.0)
+    def _check_distribution_normal(self, col, check: Check) -> CheckResult:
+        """Check if column follows normal distribution."""
+        significance_level = check.params.get("significance_level", 0.05)
+
+        result = col.expect_distribution_normal(
+            significance_level=significance_level
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_distribution_uniform(self, col, check: Check) -> CheckResult:
+        """Check if column follows uniform distribution."""
+        significance_level = check.params.get("significance_level", 0.05)
+
+        result = col.expect_distribution_uniform(
+            significance_level=significance_level
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_ks_test(self, col, check: Check) -> CheckResult:
+        """Perform Kolmogorov-Smirnov test."""
+        distribution = check.params.get("distribution", "norm")
+        significance_level = check.params.get("significance_level", 0.05)
+
+        result = col.expect_ks_test(
+            distribution=distribution,
+            significance_level=significance_level
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
+            message=result.message,
+            severity=check.severity,
+            details=result.details or {},
+        )
+
+    def _check_chi_square_test(self, col, check: Check) -> CheckResult:
+        """Perform chi-square goodness-of-fit test."""
+        expected_frequencies = check.params.get("expected_frequencies")
+        significance_level = check.params.get("significance_level", 0.05)
+
+        result = col.expect_chi_square_test(
+            expected_frequencies=expected_frequencies,
+            significance_level=significance_level
+        )
+
+        return CheckResult(
+            check=check,
+            column=col.name,
+            passed=result.passed,
+            actual_value=result.actual_value,
+            expected_value=result.expected_value,
             message=result.message,
             severity=check.severity,
             details=result.details or {},

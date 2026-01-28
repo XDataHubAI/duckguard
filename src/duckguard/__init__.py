@@ -85,7 +85,7 @@ from duckguard.semantic import (
     detect_types_for_dataset,
 )
 
-__version__ = "2.3.0"
+__version__ = "3.0.0"
 
 __all__ = [
     # Core classes
