@@ -107,6 +107,8 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+    "pandas>=2.0.0",  # Required for tests
+    "scipy>=1.11.0",  # Required for distributional check tests
 ]
 
 # Everything
