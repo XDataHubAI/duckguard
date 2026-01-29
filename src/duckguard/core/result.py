@@ -37,6 +37,11 @@ class FailedRow:
     reason: str = ""
     context: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def row_number(self) -> int:
+        """Alias for row_index (backward compatibility)."""
+        return self.row_index
+
     def __repr__(self) -> str:
         return f"FailedRow(row={self.row_index}, column='{self.column}', value={self.value!r})"
 

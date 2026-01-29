@@ -138,6 +138,15 @@ class EmailNotifier(BaseNotifier):
         if not self.email_config.to_addresses:
             raise ValueError("At least one recipient address (to_addresses) is required")
 
+        # Populate NotificationConfig with email settings for easy access
+        self.config.smtp_host = self.email_config.smtp_host
+        self.config.smtp_port = self.email_config.smtp_port
+        self.config.from_address = self.email_config.from_address
+        self.config.to_addresses = self.email_config.to_addresses
+        self.config.use_tls = self.email_config.use_tls
+        self.config.use_ssl = self.email_config.use_ssl
+        self.config.subject_prefix = self.email_config.subject_prefix
+
         # Set webhook_url to a placeholder (not used for email)
         self.webhook_url = "email://smtp"
 

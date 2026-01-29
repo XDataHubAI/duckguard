@@ -29,6 +29,53 @@ class AnomalyScore:
     threshold: float
     details: dict[str, Any] = field(default_factory=dict)
 
+    def __lt__(self, other: AnomalyScore | float) -> bool:
+        """Less than comparison based on score."""
+        if isinstance(other, AnomalyScore):
+            return self.score < other.score
+        return self.score < other
+
+    def __le__(self, other: AnomalyScore | float) -> bool:
+        """Less than or equal comparison based on score."""
+        if isinstance(other, AnomalyScore):
+            return self.score <= other.score
+        return self.score <= other
+
+    def __gt__(self, other: AnomalyScore | float) -> bool:
+        """Greater than comparison based on score."""
+        if isinstance(other, AnomalyScore):
+            return self.score > other.score
+        return self.score > other
+
+    def __ge__(self, other: AnomalyScore | float) -> bool:
+        """Greater than or equal comparison based on score."""
+        if isinstance(other, AnomalyScore):
+            return self.score >= other.score
+        return self.score >= other
+
+    def __eq__(self, other: object) -> bool:
+        """Equality comparison based on score."""
+        if isinstance(other, AnomalyScore):
+            return self.score == other.score
+        if isinstance(other, (int, float)):
+            return self.score == other
+        return NotImplemented
+
+    def __ne__(self, other: object) -> bool:
+        """Inequality comparison based on score."""
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
+
+    def __float__(self) -> float:
+        """Convert to float (returns the score)."""
+        return self.score
+
+    def __format__(self, format_spec: str) -> str:
+        """Format the score using the given format specification."""
+        return format(self.score, format_spec)
+
 
 class AnomalyMethod(ABC):
     """Base class for anomaly detection methods."""

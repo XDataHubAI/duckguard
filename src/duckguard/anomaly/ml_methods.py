@@ -60,6 +60,18 @@ class DistributionComparison:
     method: str
     details: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def is_drift(self) -> bool:
+        """Alias for is_drifted (backward compatibility)."""
+        return self.is_drifted
+
+    @property
+    def message(self) -> str:
+        """Generate a human-readable message about the comparison."""
+        if self.is_drifted:
+            return f"Distribution drift detected (p-value: {self.p_value:.4f} < threshold)"
+        return f"No significant drift detected (p-value: {self.p_value:.4f})"
+
 
 class BaselineMethod(AnomalyMethod):
     """Detect anomalies by comparing to learned baseline.
@@ -111,12 +123,32 @@ class BaselineMethod(AnomalyMethod):
     def name(self) -> str:
         return "baseline"
 
-    def fit(self, values: list[float]) -> None:
+    @property
+    def baseline_mean(self) -> float:
+        """Get the baseline mean value."""
+        return self._mean
+
+    @property
+    def baseline_std(self) -> float:
+        """Get the baseline standard deviation."""
+        return self._stddev
+
+    @property
+    def is_fitted(self) -> bool:
+        """Check if the model has been fitted."""
+        return self._fitted
+
+    def fit(self, values: list[float] | Any) -> None:
         """Learn baseline from values.
 
         Args:
-            values: List of numeric values to learn from
+            values: List of numeric values or Column object to learn from
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(values, Column):
+            values = self._get_column_values(values)
+
         clean = [v for v in values if v is not None and not math.isnan(v)]
         if not clean:
             return
@@ -135,15 +167,37 @@ class BaselineMethod(AnomalyMethod):
         self._sample_count = n
         self._fitted = True
 
-    def score(self, value: float) -> AnomalyScore:
-        """Score a value against the baseline.
+    def _get_column_values(self, column) -> list[float]:
+        """Extract numeric values from a Column object."""
+        dataset = column._dataset
+        column_name = column._name
+        engine = dataset._engine
+        table_name = dataset._source.replace('\\', '/')
+
+        query = f"""
+            SELECT "{column_name}"
+            FROM '{table_name}'
+            WHERE "{column_name}" IS NOT NULL
+        """
+
+        result = engine.fetch_all(query)
+        return [float(row[0]) for row in result]
+
+    def score(self, value: float | Any) -> AnomalyScore | list[AnomalyScore]:
+        """Score a value or column against the baseline.
 
         Args:
-            value: Value to score
+            value: Single numeric value or Column object to score
 
         Returns:
-            AnomalyScore indicating how anomalous the value is
+            AnomalyScore for single value, or list of AnomalyScores for Column
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(value, Column):
+            values = self._get_column_values(value)
+            return [self.score(v) for v in values]
+
         if value is None or math.isnan(value):
             return AnomalyScore(
                 value=value,
@@ -343,12 +397,17 @@ class KSTestMethod(AnomalyMethod):
     def name(self) -> str:
         return "ks_test"
 
-    def fit(self, values: list[float]) -> None:
+    def fit(self, values: list[float] | Any) -> None:
         """Learn baseline distribution.
 
         Args:
-            values: List of numeric values for baseline
+            values: List of numeric values or Column object for baseline
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(values, Column):
+            values = self._get_column_values(values)
+
         clean = sorted(v for v in values if v is not None and not math.isnan(v))
         if not clean:
             return
@@ -357,17 +416,39 @@ class KSTestMethod(AnomalyMethod):
         self._baseline_ecdf = self._compute_ecdf(clean)
         self._fitted = True
 
-    def score(self, value: float) -> AnomalyScore:
-        """Score a single value (uses empirical CDF).
+    def _get_column_values(self, column) -> list[float]:
+        """Extract numeric values from a Column object."""
+        dataset = column._dataset
+        column_name = column._name
+        engine = dataset._engine
+        table_name = dataset._source.replace('\\', '/')
+
+        query = f"""
+            SELECT "{column_name}"
+            FROM '{table_name}'
+            WHERE "{column_name}" IS NOT NULL
+        """
+
+        result = engine.fetch_all(query)
+        return [float(row[0]) for row in result]
+
+    def score(self, value: float | Any) -> AnomalyScore | list[AnomalyScore]:
+        """Score a value or column (uses empirical CDF).
 
         For distribution testing, use compare_distributions() instead.
 
         Args:
-            value: Value to score
+            value: Single numeric value or Column object to score
 
         Returns:
-            AnomalyScore based on position in baseline distribution
+            AnomalyScore for single value, or list of AnomalyScores for Column
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(value, Column):
+            values = self._get_column_values(value)
+            return [self.score(v) for v in values]
+
         if value is None or math.isnan(value):
             return AnomalyScore(
                 value=value,
@@ -405,18 +486,35 @@ class KSTestMethod(AnomalyMethod):
 
     def compare_distributions(
         self,
-        current_values: list[float],
+        current_values: list[float] | Any,
+        baseline_values: list[float] | Any | None = None,
     ) -> DistributionComparison:
         """Compare current distribution to baseline using KS test.
 
         Args:
-            current_values: Current values to compare
+            current_values: List of values or Column object to compare
+            baseline_values: Optional baseline data. If not provided and not fitted,
+                           will use current_values as baseline (self-comparison)
 
         Returns:
             DistributionComparison with test results
         """
+        # Handle Column objects for current_values
+        from duckguard.core.column import Column
+        if isinstance(current_values, Column):
+            current_values = self._get_column_values(current_values)
+
+        # Handle Column objects for baseline_values
+        if baseline_values is not None and isinstance(baseline_values, Column):
+            baseline_values = self._get_column_values(baseline_values)
+
+        # Auto-fit if not fitted and baseline provided
         if not self._fitted:
-            raise ValueError("Method not fitted - call fit() first")
+            if baseline_values is not None:
+                self.fit(baseline_values)
+            else:
+                # Use current_values as baseline (self-comparison for normality test)
+                self.fit(current_values)
 
         clean_current = sorted(v for v in current_values if v is not None and not math.isnan(v))
         if not clean_current:
@@ -548,14 +646,19 @@ class SeasonalMethod(AnomalyMethod):
     def name(self) -> str:
         return f"seasonal_{self.period}"
 
-    def fit(self, values: list[float]) -> None:
+    def fit(self, values: list[float] | Any) -> None:
         """Fit without timestamps (falls back to global statistics).
 
         For proper seasonal detection, use fit_with_timestamps().
 
         Args:
-            values: List of numeric values
+            values: List of numeric values or Column object
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(values, Column):
+            values = self._get_column_values(values)
+
         clean = [v for v in values if v is not None and not math.isnan(v)]
         if not clean:
             return
@@ -568,6 +671,22 @@ class SeasonalMethod(AnomalyMethod):
             self._global_stddev = math.sqrt(variance) if variance > 0 else 1.0
 
         self._fitted = True
+
+    def _get_column_values(self, column) -> list[float]:
+        """Extract numeric values from a Column object."""
+        dataset = column._dataset
+        column_name = column._name
+        engine = dataset._engine
+        table_name = dataset._source.replace('\\', '/')
+
+        query = f"""
+            SELECT "{column_name}"
+            FROM '{table_name}'
+            WHERE "{column_name}" IS NOT NULL
+        """
+
+        result = engine.fetch_all(query)
+        return [float(row[0]) for row in result]
 
     def fit_with_timestamps(
         self,
@@ -618,17 +737,23 @@ class SeasonalMethod(AnomalyMethod):
 
         self._fitted = True
 
-    def score(self, value: float) -> AnomalyScore:
-        """Score a value without timestamp (uses global stats).
+    def score(self, value: float | Any) -> AnomalyScore | list[AnomalyScore]:
+        """Score a value or column without timestamp (uses global stats).
 
         For proper seasonal scoring, use score_with_timestamp().
 
         Args:
-            value: Value to score
+            value: Single numeric value or Column object to score
 
         Returns:
-            AnomalyScore using global statistics
+            AnomalyScore for single value, or list of AnomalyScores for Column
         """
+        # Handle Column objects
+        from duckguard.core.column import Column
+        if isinstance(value, Column):
+            values = self._get_column_values(value)
+            return [self.score(v) for v in values]
+
         if value is None or math.isnan(value):
             return AnomalyScore(
                 value=value,

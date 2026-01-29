@@ -40,6 +40,16 @@ class NotificationConfig:
     max_failures_shown: int = 10
     mention_users: list[str] = field(default_factory=list)
     channel: str | None = None
+    username: str | None = None  # Slack bot username
+
+    # Email-specific attributes (set by EmailNotifier)
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    from_address: str | None = None
+    to_addresses: list[str] | None = None
+    use_tls: bool | None = None
+    use_ssl: bool | None = None
+    subject_prefix: str | None = None
 
 
 class BaseNotifier(ABC):
@@ -143,12 +153,38 @@ class SlackNotifier(BaseNotifier):
     """Slack webhook notifier.
 
     Usage:
-        notifier = SlackNotifier(webhook_url="https://hooks.slack.com/...")
+        notifier = SlackNotifier(
+            webhook_url="https://hooks.slack.com/...",
+            channel="#data-quality",
+            username="DuckGuard Bot"
+        )
         # or set DUCKGUARD_SLACK_WEBHOOK environment variable
 
         result = execute_rules(rules, "data.csv")
         notifier.send_results(result)
     """
+
+    def __init__(
+        self,
+        webhook_url: str | None = None,
+        channel: str | None = None,
+        username: str | None = None,
+        config: NotificationConfig | None = None,
+    ):
+        """Initialize Slack notifier.
+
+        Args:
+            webhook_url: Slack webhook URL
+            channel: Override default channel (e.g., "#data-quality")
+            username: Bot username to display
+            config: Notification configuration
+        """
+        super().__init__(webhook_url=webhook_url, config=config)
+        # Only override if explicitly provided (don't overwrite config values with None)
+        if channel is not None:
+            self.config.channel = channel
+        if username is not None:
+            self.config.username = username
 
     @property
     def _env_var_name(self) -> str:
@@ -211,6 +247,8 @@ class SlackNotifier(BaseNotifier):
 
         if self.config.channel:
             message["channel"] = self.config.channel
+        if self.config.username:
+            message["username"] = self.config.username
 
         return message
 
