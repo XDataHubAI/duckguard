@@ -951,6 +951,16 @@ except UnsupportedConnectorError as e:
 
 ---
 
+## Community
+
+We'd love to hear from you! Whether you have a question, idea, or want to share how you're using DuckGuard:
+
+- **[GitHub Discussions](https://github.com/XDataHubAI/duckguard/discussions)** — Ask questions, share ideas, show what you've built
+- **[GitHub Issues](https://github.com/XDataHubAI/duckguard/issues)** — Report bugs or request features
+- **[Contributing Guide](CONTRIBUTING.md)** — Learn how to contribute code, tests, or docs
+
+---
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -978,10 +988,12 @@ Elastic License 2.0 - see [LICENSE](LICENSE)
     <strong>Built with &#10084;&#65039; by the DuckGuard Team</strong>
   </p>
   <p>
+    <a href="https://github.com/XDataHubAI/duckguard/discussions">Discussions</a>
+    &middot;
     <a href="https://github.com/XDataHubAI/duckguard/issues">Report Bug</a>
     &middot;
     <a href="https://github.com/XDataHubAI/duckguard/issues">Request Feature</a>
     &middot;
-    <a href="https://github.com/XDataHubAI/duckguard/discussions">Discussions</a>
+    <a href="CONTRIBUTING.md">Contribute</a>
   </p>
 </div>

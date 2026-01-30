@@ -1,10 +1,12 @@
 ---
 name: Question
-about: Ask a question about DuckGuard
+about: Ask a question about DuckGuard (consider using Discussions instead)
 title: '[QUESTION] '
 labels: question
 assignees: ''
 ---
+
+> **Tip:** For general questions, usage help, and discussions, please use [GitHub Discussions](https://github.com/XDataHubAI/duckguard/discussions/categories/q-a) instead. Issues are best for bug reports and feature requests.
 
 ## Question
 What would you like to know?
@@ -21,5 +23,5 @@ from duckguard import connect
 ```
 
 ## Environment
-- DuckGuard version: [e.g., 2.0.0]
+- DuckGuard version: [e.g., 3.0.1]
 - Python version: [e.g., 3.10]
