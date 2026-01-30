@@ -168,7 +168,12 @@ class AutoProfiler:
             min_val = stats.get("min_value")
             max_val = stats.get("max_value")
 
-            if min_val is not None and max_val is not None:
+            if (
+                min_val is not None
+                and max_val is not None
+                and isinstance(min_val, (int, float))
+                and isinstance(max_val, (int, float))
+            ):
                 # Add buffer for range
                 range_size = max_val - min_val
                 buffer = range_size * 0.1 if range_size > 0 else 1
@@ -186,7 +191,7 @@ class AutoProfiler:
                 )
 
             # Non-negative check
-            if min_val is not None and min_val >= 0:
+            if min_val is not None and isinstance(min_val, (int, float)) and min_val >= 0:
                 suggestions.append(
                     RuleSuggestion(
                         rule=f"assert {var}.{col_name}.min >= 0",

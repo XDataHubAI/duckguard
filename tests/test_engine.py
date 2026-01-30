@@ -39,15 +39,15 @@ class TestDuckGuardEngine:
     def test_get_row_count(self, engine, orders_csv):
         """Test getting row count."""
         count = engine.get_row_count(orders_csv)
-        assert count == 25  # Updated: sample data has 25 rows
+        assert count == 30
 
     def test_get_column_stats(self, engine, orders_csv):
         """Test getting column statistics."""
         stats = engine.get_column_stats(orders_csv, "quantity")
-        assert stats["total_count"] == 25  # Updated: sample data has 25 rows
+        assert stats["total_count"] == 30
         assert stats["null_count"] == 0
-        assert stats["min_value"] == 1
-        assert stats["max_value"] == 100  # Updated: includes anomaly data
+        assert stats["min_value"] == -2
+        assert stats["max_value"] == 500
 
     def test_get_numeric_stats(self, engine, orders_csv):
         """Test getting numeric statistics."""

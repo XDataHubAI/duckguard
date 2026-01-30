@@ -1,6 +1,5 @@
 """Tests for row-level error capture in ValidationResult."""
 
-
 from duckguard.core.result import FailedRow, ValidationResult
 
 
@@ -163,7 +162,7 @@ class TestColumnValidationWithRowCapture:
             # Should have captured some failed rows
             if result.failed_rows:
                 assert all(r.column == "quantity" for r in result.failed_rows)
-                assert all(r.value > 5 for r in result.failed_rows)
+                assert all(r.value < 1 or r.value > 5 for r in result.failed_rows)
 
     def test_isin_captures_failed_rows(self, orders_dataset):
         """Test that isin() captures failed rows."""

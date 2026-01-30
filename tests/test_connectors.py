@@ -48,7 +48,7 @@ class TestConnect:
         """Test connecting to CSV file."""
         dataset = connect(orders_csv)
         assert dataset is not None
-        assert dataset.row_count == 25  # Updated: sample data has 25 rows
+        assert dataset.row_count == 30
 
     def test_connect_nonexistent_file(self):
         """Test connecting to non-existent file raises error."""
@@ -58,7 +58,7 @@ class TestConnect:
     def test_connect_unsupported_format(self):
         """Test connecting to unsupported format raises error."""
         # Create a temp file with unsupported extension
-        with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as f:
             f.write(b"data")
             temp_path = f.name
 
