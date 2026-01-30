@@ -1,22 +1,22 @@
-dataset: orders
-description: Data quality rules for orders dataset
+name: orders_validation
+description: Quality checks for the orders dataset
 
-rules:
-  # Table-level rules
-  - row_count > 0
-  - row_count < 1000000
+columns:
+  order_id:
+    checks:
+      - type: not_null
+      - type: unique
 
-  # Column nulls
-  - order_id is not null
-  - order_id is unique
-  - customer_id null_percent < 10
-  - email null_percent < 10
+  customer_id:
+    checks:
+      - type: not_null
 
-  # Numeric ranges
-  - quantity >= 1
-  - quantity < 500
-  - unit_price >= 0
-  - total_amount >= 0
+  quantity:
+    checks:
+      - type: between
+        value: [1, 1000]
 
-  # Status enum
-  - status in ['pending', 'shipped', 'delivered', 'cancelled']
+  status:
+    checks:
+      - type: allowed_values
+        value: [pending, shipped, delivered, cancelled, returned]

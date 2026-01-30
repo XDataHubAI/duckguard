@@ -28,137 +28,30 @@ pip install duckguard
 ```python
 from duckguard import connect
 
-orders = connect("orders.csv")
-assert orders.customer_id.null_percent == 0   # Just like pytest!
-assert orders.amount.between(0, 10000)        # Readable validations
-assert orders.status.isin(['pending', 'shipped', 'delivered'])
+orders = connect("orders.csv")                               # CSV, Parquet, JSON, S3, databases...
+assert orders.customer_id.is_not_null()                      # Just like pytest!
+assert orders.amount.between(0, 10000)                       # Readable validations
+assert orders.status.isin(["pending", "shipped", "delivered"])
+
+quality = orders.score()
+print(f"Grade: {quality.grade}")  # A, B, C, D, or F
 ```
 
 **That's it.** No context. No datasource. No validator. No expectation suite. Just data quality.
 
 ---
 
-## What's New in 3.0
+## Demo
 
-DuckGuard 3.0 introduces **23 new check types** and powerful validation capabilities that make complex data quality checks simple.
-
-### Conditional Expectations
-
-Apply validation rules only when certain conditions are met:
-
-```python
-# Validate state is not null only for US orders
-orders.state.not_null_when("country = 'USA'")
-
-# Check shipping_cost only for orders that were shipped
-orders.shipping_cost.greater_than_when(0, "status = 'shipped'")
-
-# Require tracking_number for expedited orders
-orders.tracking_number.not_null_when("shipping_type = 'expedited'")
-```
-
-### Multi-Column Expectations
-
-Validate relationships between columns with cross-column checks:
-
-```python
-# Ensure end_date comes after start_date
-orders.expect_column_pair_satisfy("end_date", "start_date", "end_date >= start_date")
-
-# Validate discount doesn't exceed original price
-orders.expect_column_pair_satisfy("discount", "price", "discount <= price")
-
-# Check that total matches sum of components
-orders.expect_column_pair_satisfy("total", "subtotal", "total = subtotal + tax")
-```
-
-### Query-Based Expectations
-
-Run custom SQL queries for unlimited flexibility:
-
-```python
-# Ensure no negative amounts
-orders.expect_query_to_return_no_rows("SELECT * FROM table WHERE amount < 0")
-
-# Validate business rules
-orders.expect_query_to_return_no_rows(
-    "SELECT * FROM table WHERE status = 'shipped' AND tracking_number IS NULL"
-)
-
-# Check referential integrity with custom logic
-orders.expect_query_result_equals(
-    "SELECT COUNT(*) FROM orders WHERE customer_id NOT IN (SELECT id FROM customers)",
-    0
-)
-```
-
-### Distributional Checks
-
-Test if data follows expected statistical distributions:
-
-```python
-# Test for normal distribution
-data.values.expect_distribution_normal()
-
-# Test for uniform distribution
-data.values.expect_distribution_uniform()
-
-# Chi-square goodness of fit test
-data.category.expect_distribution_chi_square(expected_freq={'A': 0.5, 'B': 0.3, 'C': 0.2})
-
-# Kolmogorov-Smirnov test for distribution matching
-current.amount.expect_distribution_ks_test(baseline.amount)
-```
-
-### Enhanced Profiling
-
-Four new profiling modules for deeper data insights:
-
-```python
-from duckguard.profiling import (
-    DistributionProfiler,   # Statistical distributions and shape analysis
-    CorrelationProfiler,    # Column relationships and dependencies
-    PatternProfiler,        # Detect common patterns in text data
-    TimeSeriesProfiler      # Temporal patterns and trends
-)
-
-# Analyze distributions
-dist_profile = DistributionProfiler().profile(orders)
-print(f"Amount distribution: {dist_profile['amount'].distribution_type}")  # 'normal', 'skewed', etc.
-
-# Discover correlations
-corr_profile = CorrelationProfiler().profile(orders)
-print(f"Highly correlated pairs: {corr_profile.high_correlations}")
-
-# Find patterns in text columns
-pattern_profile = PatternProfiler().profile(orders)
-print(f"Email pattern: {pattern_profile['email'].common_pattern}")  # Regex pattern
-
-# Analyze time series
-ts_profile = TimeSeriesProfiler().profile(orders, date_column='order_date')
-print(f"Seasonality detected: {ts_profile.has_seasonality}")
-```
-
-### More Validation Power
-
-DuckGuard 3.0 adds 23 new check types including:
-- **Conditional validations**: `not_null_when()`, `between_when()`, `isin_when()`
-- **Multi-column checks**: `expect_column_pair_satisfy()`, `expect_column_sum_equals()`
-- **Query-based**: `expect_query_to_return_no_rows()`, `expect_query_result_equals()`
-- **Distribution tests**: `expect_distribution_normal()`, `expect_distribution_chi_square()`
-- **Advanced string**: `expect_column_values_to_match_strftime()`, `expect_column_values_to_be_json()`
+<div align="center">
+  <img src="docs/assets/demo.gif" alt="DuckGuard Demo" width="750">
+</div>
 
 ---
 
 ## Why DuckGuard?
 
-### The Problem
-
-Every data quality tool makes you write **50+ lines of boilerplate** before you can validate a single column. Setting up contexts, datasources, batch requests, validators, expectation suites... just to check if a column has nulls.
-
-### The Solution
-
-DuckGuard gives you a **pytest-like API** powered by **DuckDB's speed**. Write assertions that read like English. Get results in seconds, not minutes.
+Every data quality tool asks you to write **50+ lines of boilerplate** before you can validate a single column. DuckGuard gives you a **pytest-like API** powered by **DuckDB's speed**.
 
 <table>
 <tr>
@@ -201,7 +94,7 @@ from duckguard import connect
 
 orders = connect("orders.csv")
 
-assert orders.customer_id.null_percent == 0
+assert orders.customer_id.is_not_null()
 assert orders.amount.between(0, 10000)
 ```
 
@@ -213,59 +106,33 @@ assert orders.amount.between(0, 10000)
 </tr>
 </table>
 
----
-
-## Comparison Table
-
 | Feature | DuckGuard | Great Expectations | Soda Core | Pandera |
 |---------|:---------:|:------------------:|:---------:|:-------:|
 | **Lines of code to start** | 3 | 50+ | 10+ | 5+ |
 | **Time for 1GB CSV*** | ~4 sec | ~45 sec | ~20 sec | ~15 sec |
 | **Memory for 1GB CSV*** | ~200 MB | ~4 GB | ~1.5 GB | ~1.5 GB |
-| **Direct dependencies** | 7 | 20+ | 11 | 5 |
 | **Learning curve** | Minutes | Days | Hours | Minutes |
-| **Pytest-like API** | ✅ | ❌ | ❌ | ❌ |
-| **DuckDB-powered** | ✅ | ❌ | ✅ (v4) | ❌ |
-| **Cloud storage (S3/GCS/Azure)** | ✅ | ✅ | ✅ | ❌ |
-| **Database connectors** | 11+ | ✅ | ✅ | ❌ |
-| **PII detection** | ✅ Built-in | ❌ | ❌ | ❌ |
-| **Anomaly detection (ML)** | ✅ Built-in | ❌ | ✅ (v4) | ❌ |
-| **Schema evolution tracking** | ✅ Built-in | ❌ | ✅ | ❌ |
-| **Freshness monitoring** | ✅ Built-in | ❌ | ✅ | ❌ |
-| **Data contracts** | ✅ | ❌ | ✅ | ✅ |
-| **Row-level error details** | ✅ | ✅ | ❌ | ✅ |
-| **Reference/FK checks** | ✅ Built-in | ✅ | ✅ | ❌ |
-| **Cross-dataset validation** | ✅ Built-in | ⚠️ | ✅ | ❌ |
-| **YAML rules** | ✅ | ✅ | ✅ | ❌ |
-| **dbt integration** | ✅ | ✅ | ✅ | ❌ |
-| **Slack/Teams alerts** | ✅ | ✅ | ✅ | ❌ |
-| **HTML/PDF reports** | ✅ | ✅ | ✅ | ❌ |
+| **Pytest-like API** | **Yes** | - | - | - |
+| **DuckDB-powered** | **Yes** | - | Partial | - |
+| **Cloud storage (S3/GCS/Azure)** | **Yes** | Yes | Yes | - |
+| **Database connectors** | **11+** | Yes | Yes | - |
+| **PII detection** | **Built-in** | - | - | - |
+| **Anomaly detection (7 methods)** | **Built-in** | - | Partial | - |
+| **Schema evolution tracking** | **Built-in** | - | Yes | - |
+| **Freshness monitoring** | **Built-in** | - | Yes | - |
+| **Data contracts** | **Yes** | - | Yes | Yes |
+| **Row-level error details** | **Yes** | Yes | - | Yes |
+| **Cross-dataset & FK checks** | **Built-in** | Partial | Yes | - |
+| **Reconciliation** | **Built-in** | - | - | - |
+| **Distribution drift** | **Built-in** | - | - | - |
+| **Conditional checks** | **Built-in** | - | - | - |
+| **Query-based checks** | **Built-in** | - | Yes | - |
+| **YAML rules** | **Yes** | Yes | Yes | - |
+| **dbt integration** | **Yes** | Yes | Yes | - |
+| **Slack/Teams/Email alerts** | **Yes** | Yes | Yes | - |
+| **HTML/PDF reports** | **Yes** | Yes | Yes | - |
 
 <sub>*Performance varies by hardware and data characteristics. Based on typical usage patterns with DuckDB's columnar engine.</sub>
-
----
-
-## Demo
-
-<div align="center">
-  <img src="docs/assets/demo.gif" alt="DuckGuard Demo" width="750">
-</div>
-
-```python
-from duckguard import connect
-
-orders = connect("data/orders.csv")
-
-# Assertions that read like English
-assert orders.row_count > 0
-assert orders.customer_id.null_percent < 5
-assert orders.amount.between(0, 10000)
-assert orders.status.isin(['pending', 'shipped', 'delivered'])
-
-# Get a quality score
-quality = orders.score()
-print(f"Grade: {quality.grade}")  # A, B, C, D, or F
-```
 
 ---
 
@@ -284,104 +151,95 @@ pip install duckguard[all]         # Everything
 
 ---
 
-## Features
+## Feature Overview
 
 <table>
 <tr>
 <td align="center" width="25%">
-<h3>🎯</h3>
+<h3>&#127919;</h3>
 <b>Quality Scoring</b><br>
-<sub>A-F grades based on ISO 8000</sub>
+<sub>A-F grades with 4 quality dimensions</sub>
 </td>
 <td align="center" width="25%">
-<h3>🔒</h3>
+<h3>&#128274;</h3>
 <b>PII Detection</b><br>
 <sub>Auto-detect emails, SSNs, phones</sub>
 </td>
 <td align="center" width="25%">
-<h3>📊</h3>
+<h3>&#128200;</h3>
 <b>Anomaly Detection</b><br>
-<sub>Z-score, IQR, ML baselines</sub>
+<sub>Z-score, IQR, KS-test, ML baselines</sub>
 </td>
 <td align="center" width="25%">
-<h3>🔔</h3>
+<h3>&#128276;</h3>
 <b>Alerts</b><br>
-<sub>Slack, Teams, Email notifications</sub>
+<sub>Slack, Teams, Email</sub>
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>⏰</h3>
+<h3>&#9200;</h3>
 <b>Freshness Monitoring</b><br>
 <sub>Detect stale data automatically</sub>
 </td>
 <td align="center">
-<h3>📐</h3>
+<h3>&#128208;</h3>
 <b>Schema Evolution</b><br>
-<sub>Track & detect breaking changes</sub>
+<sub>Track and detect breaking changes</sub>
 </td>
 <td align="center">
-<h3>📜</h3>
+<h3>&#128220;</h3>
 <b>Data Contracts</b><br>
-<sub>Schema + SLAs enforcement</sub>
+<sub>Schema + SLA enforcement</sub>
 </td>
 <td align="center">
-<h3>🔍</h3>
+<h3>&#128270;</h3>
 <b>Row-Level Errors</b><br>
 <sub>See exactly which rows failed</sub>
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>📄</h3>
+<h3>&#128196;</h3>
 <b>HTML/PDF Reports</b><br>
 <sub>Beautiful shareable reports</sub>
 </td>
 <td align="center">
-<h3>📈</h3>
+<h3>&#128200;</h3>
 <b>Historical Tracking</b><br>
 <sub>Quality trends over time</sub>
 </td>
 <td align="center">
-<h3>🔧</h3>
-<b>dbt Integration</b><br>
-<sub>Export rules as dbt tests</sub>
+<h3>&#128279;</h3>
+<b>Cross-Dataset Checks</b><br>
+<sub>FK, reconciliation, drift</sub>
 </td>
 <td align="center">
-<h3>🚀</h3>
+<h3>&#128640;</h3>
 <b>CI/CD Ready</b><br>
-<sub>GitHub Actions & Airflow</sub>
+<sub>dbt, Airflow, GitHub Actions</sub>
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>🔗</h3>
-<b>Reference/FK Checks</b><br>
-<sub>Cross-dataset FK validation</sub>
+<h3>&#128203;</h3>
+<b>YAML Rules</b><br>
+<sub>Declarative validation rules</sub>
 </td>
 <td align="center">
-<h3>🔀</h3>
-<b>Cross-Dataset Validation</b><br>
-<sub>Compare datasets & columns</sub>
+<h3>&#128269;</h3>
+<b>Auto-Profiling</b><br>
+<sub>Semantic types & rule suggestions</sub>
 </td>
 <td align="center">
-<h3>⚖️</h3>
-<b>Reconciliation</b><br>
-<sub>Migration & sync validation</sub>
+<h3>&#9889;</h3>
+<b>Conditional Checks</b><br>
+<sub>Validate when conditions are met</sub>
 </td>
 <td align="center">
-<h3>📊</h3>
-<b>Distribution Drift</b><br>
-<sub>KS-test based drift detection</sub>
-</td>
-</tr>
-<tr>
-<td align="center">
-<h3>📁</h3>
-<b>Group By Checks</b><br>
-<sub>Segmented validation</sub>
-</td>
-<td align="center" colspan="3">
+<h3>&#128202;</h3>
+<b>Group-By Validation</b><br>
+<sub>Segmented per-group checks</sub>
 </td>
 </tr>
 </table>
@@ -411,371 +269,547 @@ orders = connect("bigquery://project/dataset", table="orders")
 orders = connect("databricks://workspace/catalog/schema", table="orders")
 orders = connect("redshift://cluster/db", table="orders")
 
-# Streaming
-orders = connect("kafka://broker:9092/orders-topic", sample_size=1000)
-
 # Modern Formats
 orders = connect("delta://path/to/delta_table")
 orders = connect("iceberg://path/to/iceberg_table")
+
+# pandas DataFrame
+import pandas as pd
+orders = connect(pd.read_csv("orders.csv"))
 ```
 
-**Supported:** CSV, Parquet, JSON, Excel | S3, GCS, Azure Blob | PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, Redshift, Databricks, SQL Server, Oracle, MongoDB | Kafka | Delta Lake, Apache Iceberg
+**Supported:** CSV, Parquet, JSON, Excel | S3, GCS, Azure Blob | PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, Redshift, Databricks, SQL Server, Oracle, MongoDB | Delta Lake, Apache Iceberg | pandas DataFrames
 
 ---
 
-## Quick Examples
+## Cookbook
 
-<details open>
-<summary><b>🎯 Quality Score</b></summary>
+### Column Validation
 
 ```python
-quality = orders.score()
-print(f"Grade: {quality.grade}")        # A, B, C, D, or F
-print(f"Score: {quality.score}/100")    # Numeric score
-print(f"Completeness: {quality.completeness}%")
-```
-</details>
+orders = connect("orders.csv")
 
-<details>
-<summary><b>📋 YAML Rules</b></summary>
+# Null & uniqueness
+orders.order_id.is_not_null()          # No nulls allowed
+orders.order_id.is_unique()            # All values distinct
+orders.order_id.has_no_duplicates()    # Alias for is_unique
+
+# Range & comparison
+orders.amount.between(0, 10000)        # Inclusive range
+orders.amount.greater_than(0)          # Minimum (exclusive)
+orders.amount.less_than(100000)        # Maximum (exclusive)
+
+# Pattern & enum
+orders.email.matches(r'^[\w.+-]+@[\w-]+\.[\w.]+$')
+orders.status.isin(["pending", "shipped", "delivered"])
+
+# String length
+orders.order_id.value_lengths_between(5, 10)
+```
+
+Every validation returns a `ValidationResult` with `.passed`, `.message`, `.summary()`, and `.failed_rows`.
+
+### Row-Level Error Debugging
+
+```python
+result = orders.quantity.between(1, 100)
+
+if not result.passed:
+    print(result.summary())
+    # Column 'quantity' has 3 values outside [1, 100]
+    #
+    # Sample of 3 failing rows (total: 3):
+    #   Row 5: quantity=500 - Value outside range [1, 100]
+    #   Row 23: quantity=-2 - Value outside range [1, 100]
+    #   Row 29: quantity=0 - Value outside range [1, 100]
+
+    for row in result.failed_rows:
+        print(f"Row {row.row_number}: {row.value} ({row.reason})")
+
+    print(result.get_failed_values())        # [500, -2, 0]
+    print(result.get_failed_row_indices())   # [5, 23, 29]
+```
+
+### Quality Scoring
+
+```python
+score = orders.score()
+
+print(score.grade)          # A, B, C, D, or F
+print(score.overall)        # 0-100 composite score
+print(score.completeness)   # % non-null across all columns
+print(score.uniqueness)     # % unique across key columns
+print(score.validity)       # % values passing type/range checks
+print(score.consistency)    # % consistent formatting
+```
+
+### Cross-Dataset Validation
+
+```python
+orders = connect("orders.csv")
+customers = connect("customers.csv")
+
+# Foreign key check
+result = orders.customer_id.exists_in(customers.customer_id)
+
+# FK with null handling
+result = orders.customer_id.references(customers.customer_id, allow_nulls=True)
+
+# Get orphan values for debugging
+orphans = orders.customer_id.find_orphans(customers.customer_id)
+print(f"Invalid IDs: {orphans}")
+
+# Compare value sets
+result = orders.status.matches_values(lookup.code)
+
+# Compare row counts with tolerance
+result = orders.row_count_matches(backup, tolerance=10)
+```
+
+### Reconciliation
+
+```python
+source = connect("orders_source.parquet")
+target = connect("orders_migrated.parquet")
+
+recon = source.reconcile(
+    target,
+    key_columns=["order_id"],
+    compare_columns=["amount", "status", "customer_id"],
+)
+
+print(recon.match_percentage)    # 95.5
+print(recon.missing_in_target)   # 3
+print(recon.extra_in_target)     # 1
+print(recon.value_mismatches)    # {'amount': 5, 'status': 2}
+print(recon.summary())
+```
+
+### Distribution Drift Detection
+
+```python
+baseline = connect("orders_jan.parquet")
+current  = connect("orders_feb.parquet")
+
+drift = current.amount.detect_drift(baseline.amount)
+
+print(drift.is_drifted)    # True/False
+print(drift.p_value)       # 0.0023
+print(drift.statistic)     # KS statistic
+print(drift.message)       # Human-readable summary
+```
+
+### Group-By Validation
+
+```python
+grouped = orders.group_by("region")
+
+print(grouped.groups)        # [{'region': 'North'}, ...]
+print(grouped.group_count)   # 4
+
+for stat in grouped.stats():
+    print(stat)              # {'region': 'North', 'row_count': 150}
+
+# Ensure every group has at least 10 rows
+result = grouped.row_count_greater_than(10)
+for g in result.get_failed_groups():
+    print(f"{g.key_string}: only {g.row_count} rows")
+```
+
+---
+
+## What's New in 3.0
+
+DuckGuard 3.0 introduces **conditional checks**, **multi-column validation**, **query-based expectations**, **distributional tests**, and **7 anomaly detection methods**.
+
+### Conditional Checks
+
+Apply validation rules only when a SQL condition is met:
+
+```python
+# Email required only for shipped orders
+orders.email.not_null_when("status = 'shipped'")
+
+# Quantity must be 1-100 for US orders
+orders.quantity.between_when(1, 100, "country = 'US'")
+
+# Status must be shipped or delivered for UK
+orders.status.isin_when(["shipped", "delivered"], "country = 'UK'")
+
+# Also: unique_when(), matches_when()
+```
+
+### Multi-Column Checks
+
+Validate relationships across columns:
+
+```python
+# Ship date must come after created date
+orders.expect_column_pair_satisfy(
+    column_a="ship_date",
+    column_b="created_at",
+    expression="ship_date >= created_at",
+)
+
+# Composite key uniqueness
+orders.expect_columns_unique(columns=["order_id", "customer_id"])
+
+# Multi-column sum check
+orders.expect_multicolumn_sum_to_equal(
+    columns=["subtotal", "tax", "shipping"],
+    expected_sum=59.50,
+)
+```
+
+### Query-Based Checks
+
+Run custom SQL for unlimited flexibility:
+
+```python
+# No rows should have negative quantities
+orders.expect_query_to_return_no_rows(
+    "SELECT * FROM table WHERE quantity < 0"
+)
+
+# Verify data exists
+orders.expect_query_to_return_rows(
+    "SELECT * FROM table WHERE status = 'shipped'"
+)
+
+# Exact value check on aggregate
+orders.expect_query_result_to_equal(
+    "SELECT COUNT(*) FROM table", expected=1000
+)
+
+# Range check on aggregate
+orders.expect_query_result_to_be_between(
+    "SELECT AVG(amount) FROM table", min_value=50, max_value=500
+)
+```
+
+### Distributional Checks
+
+Statistical tests for distribution shape (requires `scipy`):
+
+```python
+# Test for normal distribution
+orders.amount.expect_distribution_normal(significance_level=0.05)
+
+# Kolmogorov-Smirnov test
+orders.quantity.expect_ks_test(distribution="norm")
+
+# Chi-square goodness of fit
+orders.status.expect_chi_square_test()
+```
+
+### Anomaly Detection (7 Methods)
+
+```python
+from duckguard import detect_anomalies, AnomalyDetector
+from duckguard.anomaly import BaselineMethod, KSTestMethod, SeasonalMethod
+
+# High-level API: detect anomalies across columns
+report = detect_anomalies(orders, method="zscore", columns=["quantity", "amount"])
+print(report.has_anomalies, report.anomaly_count)
+for a in report.anomalies:
+    print(f"{a.column}: score={a.score:.2f}, anomaly={a.is_anomaly}")
+
+# AnomalyDetector with IQR
+detector = AnomalyDetector(method="iqr", threshold=1.5)
+report = detector.detect(orders, columns=["quantity"])
+
+# ML Baseline: fit on historical data, score new values
+baseline = BaselineMethod(sensitivity=2.0)
+baseline.fit([100, 102, 98, 105, 97, 103])
+print(baseline.baseline_mean, baseline.baseline_std)
+
+score = baseline.score(250)  # Single value
+print(score.is_anomaly, score.score)
+
+scores = baseline.score(orders.amount)  # Entire column
+print(max(scores))
+
+# KS-Test: detect distribution drift
+ks = KSTestMethod(p_value_threshold=0.05)
+ks.fit([1, 2, 3, 4, 5])
+comparison = ks.compare_distributions([10, 11, 12, 13, 14])
+print(comparison.is_drift, comparison.p_value, comparison.message)
+
+# Seasonal: time-aware anomaly detection
+seasonal = SeasonalMethod(period="daily", sensitivity=2.0)
+seasonal.fit([10, 12, 11, 13, 9, 14])
+```
+
+**Available methods:** `zscore`, `iqr`, `modified_zscore`, `percent_change`, `baseline`, `ks_test`, `seasonal`
+
+---
+
+## YAML Rules & Data Contracts
+
+### Declarative Rules
 
 ```yaml
 # duckguard.yaml
-dataset: orders
-rules:
-  - order_id is not null
-  - order_id is unique
-  - amount >= 0
-  - status in ['pending', 'shipped', 'delivered']
-  - customer_email matches '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+name: orders_validation
+description: Quality checks for the orders dataset
+
+columns:
+  order_id:
+    checks:
+      - type: not_null
+      - type: unique
+  quantity:
+    checks:
+      - type: between
+        value: [1, 1000]
+  status:
+    checks:
+      - type: allowed_values
+        value: [pending, shipped, delivered, cancelled, returned]
 ```
 
 ```python
 from duckguard import load_rules, execute_rules
 
-result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
-print(f"Passed: {result.passed_count}/{result.total_checks}")
-```
-</details>
+rules = load_rules("duckguard.yaml")
+result = execute_rules(rules, "orders.csv")
 
-<details>
-<summary><b>🔒 PII Detection</b></summary>
+print(f"Passed: {result.passed_count}/{result.total_checks}")
+for r in result.results:
+    tag = "PASS" if r.passed else "FAIL"
+    print(f"  [{tag}] {r.message}")
+```
+
+### Auto-Discover Rules
 
 ```python
-from duckguard.semantic import SemanticAnalyzer
+from duckguard import connect, generate_rules
 
+orders = connect("orders.csv")
+yaml_rules = generate_rules(orders, dataset_name="orders")
+print(yaml_rules)  # Ready-to-use YAML
+```
+
+### Data Contracts
+
+```python
+from duckguard import generate_contract, validate_contract, diff_contracts
+from duckguard.contracts import contract_to_yaml
+
+# Generate a contract from existing data
+contract = generate_contract(orders, name="orders_v1", owner="data-team")
+print(contract.name, contract.version, len(contract.schema))
+
+# Validate data against a contract
+validation = validate_contract(contract, "orders.csv")
+print(validation.passed)
+
+# Export to YAML
+print(contract_to_yaml(contract))
+
+# Detect breaking changes between versions
+diff = diff_contracts(contract_v1, contract_v2)
+if diff.has_breaking_changes:
+    for change in diff.changes:
+        print(change)
+```
+
+---
+
+## Auto-Profiling & Semantic Analysis
+
+```python
+from duckguard import AutoProfiler, SemanticAnalyzer, detect_type, detect_types_for_dataset
+
+# Profile entire dataset
+profiler = AutoProfiler()
+profile = profiler.profile(orders)
+print(f"Columns: {profile.column_count}, Rows: {profile.row_count}")
+print(f"Suggested rules: {len(profile.suggested_rules)}")
+for rule in profile.suggested_rules[:5]:
+    print(f"  {rule}")
+
+# Detect semantic type for a single column
+print(detect_type(orders, "email"))     # SemanticType.EMAIL
+print(detect_type(orders, "country"))   # SemanticType.COUNTRY_CODE
+
+# Detect types for all columns at once
+type_map = detect_types_for_dataset(orders)
+for col, stype in type_map.items():
+    print(f"  {col}: {stype}")
+
+# Full PII analysis
 analysis = SemanticAnalyzer().analyze(orders)
-print(f"PII columns: {analysis.pii_columns}")
-# PII columns: ['email', 'phone', 'ssn']
-
+print(f"PII columns: {analysis.pii_columns}")  # ['email', 'phone']
 for col in analysis.columns:
     if col.is_pii:
-        print(f"⚠️  {col.name}: {col.pii_type} detected!")
+        print(f"  {col.name}: {col.semantic_type.value} (confidence: {col.confidence:.0%})")
 ```
-</details>
 
-<details>
-<summary><b>📊 Anomaly Detection</b></summary>
+**Supported semantic types:** `email`, `phone`, `url`, `ip_address`, `ssn`, `credit_card`, `person_name`, `address`, `country`, `state`, `city`, `zipcode`, `latitude`, `longitude`, `date`, `datetime`, `currency`, `percentage`, `boolean`, `uuid`, `identifier`, and more.
 
-```python
-from duckguard import detect_anomalies
+---
 
-# Statistical methods
-report = detect_anomalies(orders, method="zscore")
-report = detect_anomalies(orders, method="iqr")
+## Freshness, Schema & History
 
-# ML-based baseline learning
-report = detect_anomalies(orders, method="baseline", learn_baseline=True)
-
-# Later: compare new data against baseline
-report = detect_anomalies(new_orders, method="baseline")
-if report.has_anomalies:
-    for anomaly in report.anomalies:
-        print(f"🚨 {anomaly.column}: {anomaly.message}")
-```
-</details>
-
-<details>
-<summary><b>⏰ Freshness Monitoring</b></summary>
+### Freshness Monitoring
 
 ```python
 from datetime import timedelta
+from duckguard.freshness import FreshnessMonitor
 
 # Quick check
-print(data.freshness.age_human)  # "2 hours ago"
-print(data.freshness.is_fresh)   # True
+print(orders.freshness.last_modified)   # 2024-01-30 14:22:01
+print(orders.freshness.age_human)       # "2 hours ago"
+print(orders.freshness.is_fresh)        # True
 
 # Custom threshold
-if not data.is_fresh(timedelta(hours=6)):
-    print("🚨 Data is stale!")
-```
-</details>
+print(orders.is_fresh(timedelta(hours=6)))
 
-<details>
-<summary><b>📐 Schema Evolution</b></summary>
+# Structured monitoring
+monitor = FreshnessMonitor(threshold=timedelta(hours=1))
+result = monitor.check(orders)
+print(result.is_fresh, result.age_human)
+```
+
+### Schema Evolution
 
 ```python
 from duckguard.schema_history import SchemaTracker, SchemaChangeAnalyzer
 
+# Capture a snapshot
 tracker = SchemaTracker()
-tracker.capture(data)  # Save snapshot
+snapshot = tracker.capture(orders)
+for col in snapshot.columns[:5]:
+    print(f"  {col.name}: {col.dtype}")
 
-# Later: detect changes
+# View history
+history = tracker.get_history(orders.source)
+print(f"Snapshots: {len(history)}")
+
+# Detect breaking changes
 analyzer = SchemaChangeAnalyzer()
-report = analyzer.detect_changes(data)
-
-if report.has_breaking_changes:
-    print("🚨 Breaking schema changes!")
-    for change in report.breaking_changes:
-        print(f"  - {change}")
+report = analyzer.detect_changes(orders)
+print(report.has_breaking_changes, len(report.changes))
 ```
-</details>
 
-<details>
-<summary><b>📜 Data Contracts</b></summary>
+### Historical Tracking & Trends
 
 ```python
-from duckguard import generate_contract, validate_contract
+from duckguard.history import HistoryStorage, TrendAnalyzer
 
-# Generate from existing data
-contract = generate_contract(orders)
-contract.save("orders_contract.yaml")
+# Store validation results
+storage = HistoryStorage()
+storage.store(exec_result)
 
-# Validate new data
-result = validate_contract(contract, new_orders)
-if not result.passed:
-    print("❌ Contract violation!")
+# Query past runs
+runs = storage.get_runs("orders.csv", limit=10)
+for run in runs:
+    print(f"  {run.run_id}: passed={run.passed}, checks={run.total_checks}")
+
+# Analyze quality trends
+trends = TrendAnalyzer(storage).analyze("orders.csv", days=30)
+print(trends.summary())
 ```
-</details>
 
-<details>
-<summary><b>🔍 Row-Level Errors</b></summary>
+---
 
-```python
-result = orders.quantity.between(1, 100)
-if not result.passed:
-    print(result.summary())
-    # Sample of 10 failing rows (total: 25):
-    #   Row 5: quantity=150 - Value outside range [1, 100]
-    #   Row 12: quantity=-5 - Value outside range [1, 100]
-
-    # Export failed rows for debugging
-    failed_df = result.to_dataframe()
-```
-</details>
-
-<details>
-<summary><b>🔔 Slack/Teams/Email Alerts</b></summary>
-
-```python
-from duckguard.notifications import SlackNotifier, EmailNotifier
-
-slack = SlackNotifier(webhook_url="https://hooks.slack.com/...")
-# Or: email = EmailNotifier(smtp_host="smtp.gmail.com", ...)
-
-result = execute_rules(rules, dataset=orders)
-if not result.passed:
-    slack.send_failure_alert(result)
-```
-</details>
-
-<details>
-<summary><b>📄 HTML/PDF Reports</b></summary>
+## Reports & Notifications
 
 ```python
 from duckguard.reports import generate_html_report, generate_pdf_report
-
-result = execute_rules(load_rules("duckguard.yaml"), dataset=orders)
-
-generate_html_report(result, "report.html")
-generate_pdf_report(result, "report.pdf")  # requires weasyprint
-```
-</details>
-
-<details>
-<summary><b>🔧 dbt Integration</b></summary>
-
-```python
-from duckguard.integrations import dbt
-
-# Export DuckGuard rules to dbt
-rules = load_rules("duckguard.yaml")
-dbt.export_to_schema(rules, "models/schema.yml")
-
-# Import dbt tests as DuckGuard rules
-rules = dbt.import_from_dbt("models/schema.yml")
-```
-</details>
-
-<details>
-<summary><b>🚀 Airflow Integration</b></summary>
-
-```python
-from duckguard.integrations.airflow import DuckGuardOperator
-
-validate_orders = DuckGuardOperator(
-    task_id="validate_orders",
-    source="s3://bucket/orders.parquet",
-    config="duckguard.yaml",
-    fail_on_error=True,
+from duckguard.notifications import (
+    SlackNotifier, TeamsNotifier, EmailNotifier,
+    format_results_text, format_results_markdown,
 )
-```
-</details>
 
-<details>
-<summary><b>⚡ GitHub Actions</b></summary>
+# HTML/PDF reports
+generate_html_report(exec_result, "report.html")
+generate_pdf_report(exec_result, "report.pdf")    # requires weasyprint
+
+# Notifications
+slack = SlackNotifier(webhook_url="https://hooks.slack.com/services/XXX")
+teams = TeamsNotifier(webhook_url="https://outlook.office.com/webhook/XXX")
+email = EmailNotifier(
+    smtp_host="smtp.example.com", smtp_port=587,
+    smtp_user="user", smtp_password="pass",
+    to_addresses=["team@example.com"],
+)
+
+# Format for custom integrations
+print(format_results_text(exec_result))
+print(format_results_markdown(exec_result))
+```
+
+---
+
+## Integrations
+
+### dbt
+
+```python
+from duckguard.integrations.dbt import rules_to_dbt_tests
+
+dbt_tests = rules_to_dbt_tests(rules)
+```
+
+### Airflow
+
+```python
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+
+def validate_orders():
+    from duckguard import connect, load_rules, execute_rules
+    rules = load_rules("duckguard.yaml")
+    result = execute_rules(rules, "s3://bucket/orders.parquet")
+    if not result.passed:
+        raise Exception(f"Quality check failed: {result.failed_count} failures")
+
+dag = DAG("data_quality", schedule_interval="@daily", ...)
+PythonOperator(task_id="validate", python_callable=validate_orders, dag=dag)
+```
+
+### GitHub Actions
 
 ```yaml
-# .github/workflows/data-quality.yml
-- uses: XDataHubAI/duckguard/.github/actions/duckguard-check@main
-  with:
-    source: data/orders.csv
-    config: duckguard.yaml
+name: Data Quality
+on: [push]
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install duckguard
+      - run: duckguard check data/orders.csv --rules duckguard.yaml
 ```
-</details>
 
-<details>
-<summary><b>🔗 Reference/FK Checks</b></summary>
+### pytest
 
 ```python
+# tests/test_data_quality.py
 from duckguard import connect
 
-orders = connect("orders.parquet")
-customers = connect("customers.parquet")
-
-# Check that all customer_ids exist in customers table
-result = orders["customer_id"].exists_in(customers["id"])
-if not result.passed:
-    print(f"Found {result.actual_value} orphan records!")
-    for row in result.failed_rows:
-        print(f"  Row {row.row_number}: {row.value}")
-
-# FK check with null handling options
-result = orders["customer_id"].references(
-    customers["id"],
-    allow_nulls=True  # Nulls are OK (optional FK)
-)
-
-# Get list of orphan values for debugging
-orphans = orders["customer_id"].find_orphans(customers["id"])
-print(f"Invalid customer IDs: {orphans}")
+def test_orders_quality():
+    orders = connect("data/orders.csv")
+    assert orders.row_count > 0
+    assert orders.order_id.is_not_null()
+    assert orders.order_id.is_unique()
+    assert orders.quantity.between(0, 10000)
+    assert orders.status.isin(["pending", "shipped", "delivered", "cancelled"])
 ```
-</details>
-
-<details>
-<summary><b>🔀 Cross-Dataset Validation</b></summary>
-
-```python
-from duckguard import connect
-
-orders = connect("orders.parquet")
-backup = connect("orders_backup.parquet")
-status_lookup = connect("status_codes.csv")
-
-# Compare row counts between datasets
-result = orders.row_count_matches(backup)
-result = orders.row_count_matches(backup, tolerance=10)  # Allow small diff
-
-# Validate that column values match a lookup table
-result = orders["status"].matches_values(status_lookup["code"])
-if not result.passed:
-    print(f"Missing in lookup: {result.details['missing_in_other']}")
-    print(f"Extra in lookup: {result.details['extra_in_other']}")
-```
-</details>
-
-<details>
-<summary><b>⚖️ Reconciliation</b></summary>
-
-```python
-from duckguard import connect
-
-source = connect("orders_source.parquet")
-target = connect("orders_migrated.parquet")
-
-# Reconcile datasets using primary key
-result = source.reconcile(
-    target,
-    key_columns=["order_id"],
-    compare_columns=["amount", "status", "customer_id"]
-)
-
-if not result.passed:
-    print(f"Missing in target: {result.missing_in_target}")
-    print(f"Extra in target: {result.extra_in_target}")
-    print(f"Value mismatches: {result.value_mismatches}")
-    print(result.summary())
-
-# With numeric tolerance for floating point comparison
-result = source.reconcile(
-    target,
-    key_columns=["order_id"],
-    compare_columns=["amount"],
-    tolerance=0.01  # Allow 1% difference
-)
-```
-</details>
-
-<details>
-<summary><b>📊 Distribution Drift Detection</b></summary>
-
-```python
-from duckguard import connect
-
-baseline = connect("orders_baseline.parquet")
-current = connect("orders_current.parquet")
-
-# Detect distribution drift using KS-test
-result = current["amount"].detect_drift(baseline["amount"])
-
-if result.is_drifted:
-    print(f"Distribution drift detected!")
-    print(f"P-value: {result.p_value:.4f}")
-    print(f"KS statistic: {result.statistic:.4f}")
-
-# Custom threshold (default: 0.05)
-result = current["score"].detect_drift(
-    baseline["score"],
-    threshold=0.01  # More sensitive detection
-)
-```
-</details>
-
-<details>
-<summary><b>📁 Group By Checks</b></summary>
-
-```python
-from duckguard import connect
-
-orders = connect("orders.parquet")
-
-# Get group statistics
-stats = orders.group_by("region").stats()
-for g in stats:
-    print(f"{g['region']}: {g['row_count']} rows")
-
-# Validate row count per group
-result = orders.group_by("region").row_count_greater_than(100)
-if not result.passed:
-    for g in result.get_failed_groups():
-        print(f"Region {g.group_key} has only {g.row_count} rows")
-
-# Group by multiple columns
-result = orders.group_by(["date", "region"]).row_count_greater_than(0)
-print(f"Passed: {result.passed_groups}/{result.total_groups} groups")
-```
-</details>
 
 ---
 
 ## CLI
 
 ```bash
-# Validate data
-duckguard check orders.csv
+# Validate data against rules
 duckguard check orders.csv --config duckguard.yaml
 
-# Auto-generate rules from data
+# Auto-discover rules from data
 duckguard discover orders.csv > duckguard.yaml
 
 # Generate reports
@@ -783,10 +817,8 @@ duckguard report orders.csv --output report.html
 
 # Anomaly detection
 duckguard anomaly orders.csv --method zscore
-duckguard anomaly orders.csv --learn-baseline
-duckguard anomaly orders.csv --method baseline
 
-# Freshness monitoring
+# Freshness check
 duckguard freshness orders.csv --max-age 6h
 
 # Schema tracking
@@ -796,13 +828,16 @@ duckguard schema orders.csv --action changes
 # Data contracts
 duckguard contract generate orders.csv
 duckguard contract validate orders.csv
+
+# Dataset info
+duckguard info orders.csv
 ```
 
 ---
 
 ## Performance
 
-Built on DuckDB for blazing fast validation:
+Built on DuckDB for fast, memory-efficient validation:
 
 | Dataset | Great Expectations | DuckGuard | Speedup |
 |---------|:------------------:|:---------:|:-------:|
@@ -817,111 +852,101 @@ Built on DuckDB for blazing fast validation:
 - **Lazy evaluation**: Only compute what's needed
 - **Memory efficient**: Stream large files without loading entirely
 
----
-
-## Scaling Guide
+### Scaling Guide
 
 | Data Size | Recommendation |
 |-----------|----------------|
 | < 10M rows | DuckGuard directly |
 | 10-100M rows | Use Parquet, configure `memory_limit` |
 | 100GB+ | Use database connectors (Snowflake, BigQuery, Databricks) |
-| Delta Tables | Use Databricks connector for query pushdown |
 
 ```python
 from duckguard import DuckGuardEngine, connect
 
-# Configure for large datasets
 engine = DuckGuardEngine(memory_limit="8GB")
 dataset = connect("large_data.parquet", engine=engine)
 ```
 
 ---
 
-## Column Methods Reference
+## API Quick Reference
+
+### Column Properties
 
 ```python
-# Statistics (properties)
+col.null_count        # Number of null values
 col.null_percent      # Percentage of null values
-col.unique_percent    # Percentage of unique values
-col.min, col.max      # Min/max values
-col.mean, col.stddev  # Mean and standard deviation
-col.count             # Non-null count
-
-# Validations (return ValidationResult with .passed, .summary(), etc.)
-col.not_null()                # No nulls allowed
-col.is_unique()               # All values unique
-col.between(0, 100)           # Range check
-col.greater_than(0)           # Minimum value
-col.less_than(1000)           # Maximum value
-col.matches(r'^\d{5}$')       # Regex pattern
-col.isin(['a', 'b', 'c'])     # Allowed values
-col.not_in(['x', 'y'])        # Forbidden values
-col.has_no_duplicates()       # No duplicate values
-col.value_lengths_between(1, 50)  # String length
-
-# Cross-dataset validation (return ValidationResult)
-col.exists_in(other_col)             # FK check: values exist in reference
-col.references(other_col)            # FK check with null handling options
-col.find_orphans(other_col)          # Get list of orphan values
-col.matches_values(other_col)        # Value sets match between columns
-
-# Distribution drift detection (returns DriftResult)
-col.detect_drift(other_col)          # KS-test based drift detection
-col.detect_drift(other_col, threshold=0.01)  # Custom p-value threshold
+col.unique_count      # Number of distinct values
+col.min, col.max      # Min/max values (numeric)
+col.mean, col.median  # Mean and median (numeric)
+col.stddev            # Standard deviation (numeric)
 ```
 
-## Dataset Methods Reference
+### Column Validation Methods
 
-```python
-# Properties
-dataset.row_count      # Number of rows
-dataset.columns        # List of column names
-dataset.column_count   # Number of columns
-dataset.freshness      # FreshnessResult with age info
+| Method | Description |
+|--------|-------------|
+| `col.is_not_null()` | No nulls allowed |
+| `col.is_unique()` | All values distinct |
+| `col.between(min, max)` | Range check (inclusive) |
+| `col.greater_than(val)` | Minimum (exclusive) |
+| `col.less_than(val)` | Maximum (exclusive) |
+| `col.matches(regex)` | Regex pattern check |
+| `col.isin(values)` | Allowed values |
+| `col.has_no_duplicates()` | No duplicate values |
+| `col.value_lengths_between(min, max)` | String length range |
+| `col.exists_in(ref_col)` | FK: values exist in reference |
+| `col.references(ref_col, allow_nulls)` | FK with null handling |
+| `col.find_orphans(ref_col)` | List orphan values |
+| `col.matches_values(other_col)` | Compare value sets |
+| `col.detect_drift(ref_col)` | KS-test drift detection |
+| `col.not_null_when(condition)` | Conditional not-null |
+| `col.unique_when(condition)` | Conditional uniqueness |
+| `col.between_when(min, max, condition)` | Conditional range |
+| `col.isin_when(values, condition)` | Conditional enum |
+| `col.matches_when(pattern, condition)` | Conditional pattern |
+| `col.expect_distribution_normal()` | Normality test |
+| `col.expect_ks_test(distribution)` | KS distribution test |
+| `col.expect_chi_square_test()` | Chi-square test |
 
-# Validation methods
-dataset.is_fresh(timedelta)              # Check data freshness
-dataset.row_count_matches(other)         # Compare row counts
-dataset.row_count_equals(other)          # Exact row count match
-dataset.score()                          # Calculate quality score
+### Dataset Methods
 
-# Reconciliation (returns ReconciliationResult)
-dataset.reconcile(other, key_columns)    # Full dataset comparison
-dataset.reconcile(other, key_columns, compare_columns, tolerance)
-
-# Group By (returns GroupedDataset)
-dataset.group_by("column")               # Group by single column
-dataset.group_by(["col1", "col2"])       # Group by multiple columns
-grouped.stats()                          # Get per-group statistics
-grouped.row_count_greater_than(100)      # Validate per-group row counts
-```
+| Method | Description |
+|--------|-------------|
+| `ds.score()` | Quality score (completeness, uniqueness, validity, consistency) |
+| `ds.reconcile(target, key_columns, compare_columns)` | Full reconciliation |
+| `ds.row_count_matches(other, tolerance)` | Row count comparison |
+| `ds.group_by(columns)` | Group-level validation |
+| `ds.expect_column_pair_satisfy(a, b, expr)` | Column pair check |
+| `ds.expect_columns_unique(columns)` | Composite key uniqueness |
+| `ds.expect_multicolumn_sum_to_equal(columns, sum)` | Multi-column sum |
+| `ds.expect_query_to_return_no_rows(sql)` | Custom SQL: no violations |
+| `ds.expect_query_to_return_rows(sql)` | Custom SQL: data exists |
+| `ds.expect_query_result_to_equal(sql, val)` | Custom SQL: exact value |
+| `ds.expect_query_result_to_be_between(sql, min, max)` | Custom SQL: range |
+| `ds.is_fresh(max_age)` | Data freshness check |
+| `ds.head(n)` | Preview first n rows |
 
 ---
 
-## Migrating from Great Expectations?
+## Enhanced Error Messages
+
+DuckGuard provides helpful, actionable error messages with suggestions:
 
 ```python
-# Before: Great Expectations (50+ lines)
-context = get_context()
-datasource = context.sources.add_pandas("my_datasource")
-asset = datasource.add_dataframe_asset(name="orders", dataframe=df)
-batch_request = asset.build_batch_request()
-expectation_suite = context.add_expectation_suite("orders_suite")
-validator = context.get_validator(
-    batch_request=batch_request,
-    expectation_suite_name="orders_suite"
-)
-validator.expect_column_values_to_not_be_null("customer_id")
-validator.expect_column_values_to_be_between("amount", 0, 10000)
-results = validator.validate()
+try:
+    orders.nonexistent_column
+except ColumnNotFoundError as e:
+    print(e)
+    # Column 'nonexistent_column' not found.
+    # Available columns: order_id, customer_id, product_name, ...
 
-# After: DuckGuard (3 lines)
-from duckguard import connect
-
-orders = connect("orders.csv")
-assert orders.customer_id.null_percent == 0
-assert orders.amount.between(0, 10000)
+try:
+    connect("ftp://data.example.com/file.xyz")
+except UnsupportedConnectorError as e:
+    print(e)
+    # No connector found for: ftp://data.example.com/file.xyz
+    # Supported formats: CSV, Parquet, JSON, PostgreSQL, MySQL, ...
 ```
 
 ---
@@ -931,17 +956,13 @@ assert orders.amount.between(0, 10000)
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-# Clone and install
 git clone https://github.com/XDataHubAI/duckguard.git
 cd duckguard
 pip install -e ".[dev]"
 
-# Run tests
-pytest
-
-# Format code
-black src tests
-ruff check src tests
+pytest                    # Run tests
+black src tests           # Format code
+ruff check src tests      # Lint
 ```
 
 ---
@@ -954,13 +975,13 @@ Elastic License 2.0 - see [LICENSE](LICENSE)
 
 <div align="center">
   <p>
-    <strong>Built with ❤️ by the DuckGuard Team</strong>
+    <strong>Built with &#10084;&#65039; by the DuckGuard Team</strong>
   </p>
   <p>
     <a href="https://github.com/XDataHubAI/duckguard/issues">Report Bug</a>
-    ·
+    &middot;
     <a href="https://github.com/XDataHubAI/duckguard/issues">Request Feature</a>
-    ·
+    &middot;
     <a href="https://github.com/XDataHubAI/duckguard/discussions">Discussions</a>
   </p>
 </div>
