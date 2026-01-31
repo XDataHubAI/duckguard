@@ -1,22 +1,16 @@
 name: orders_validation
 description: Quality checks for the orders dataset
 
-columns:
+checks:
   order_id:
-    checks:
-      - type: not_null
-      - type: unique
+    - not_null
+    - unique
 
   customer_id:
-    checks:
-      - type: not_null
+    - not_null
 
   quantity:
-    checks:
-      - type: between
-        value: [1, 1000]
+    - between: [1, 1000]
 
   status:
-    checks:
-      - type: allowed_values
-        value: [pending, shipped, delivered, cancelled, returned]
+    - allowed_values: [pending, shipped, delivered, cancelled, returned]

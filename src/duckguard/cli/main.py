@@ -1118,20 +1118,31 @@ def report(
         True, "--include-passed/--no-passed", help="Include passed checks"
     ),
     store: bool = typer.Option(False, "--store", "-s", help="Store results in history"),
+    trends: bool = typer.Option(
+        False, "--trends", help="Include quality trend charts from history"
+    ),
+    trend_days: int = typer.Option(
+        30, "--trend-days", help="Number of days of history for trend charts"
+    ),
+    dark_mode: str = typer.Option("auto", "--dark-mode", help="Theme mode: auto, light, dark"),
+    logo: str | None = typer.Option(None, "--logo", help="Logo URL or data URI for report header"),
 ) -> None:
     """
     Generate a data quality report (HTML or PDF).
 
-    Runs validation checks and generates a beautiful, shareable report.
+    Runs validation checks and generates a beautiful, shareable report
+    with dark mode, interactive tables, and optional trend charts.
 
     [bold]Examples:[/bold]
         duckguard report data.csv
         duckguard report data.csv --format pdf --output report.pdf
         duckguard report data.csv --config rules.yaml --title "Orders Quality"
         duckguard report data.csv --store  # Also save to history
+        duckguard report data.csv --trends  # Include quality trend charts
+        duckguard report data.csv --dark-mode dark  # Force dark theme
     """
     from duckguard.connectors import connect
-    from duckguard.reports import generate_html_report, generate_pdf_report
+    from duckguard.reports import HTMLReporter, PDFReporter, ReportConfig
     from duckguard.rules import execute_rules, generate_rules, load_rules
 
     # Determine output path based on format
@@ -1182,6 +1193,31 @@ def report(
         console.print(f"Quality Score: [cyan]{result.quality_score:.1f}%[/cyan]")
         console.print(f"Checks: {result.passed_count}/{result.total_checks} passed\n")
 
+        # Load trend data if requested
+        trend_data = None
+        history_runs = None
+        if trends:
+            from duckguard.history import HistoryStorage
+
+            try:
+                storage_for_trends = HistoryStorage()
+                trend_data = storage_for_trends.get_trend(source, days=trend_days)
+                history_runs = storage_for_trends.get_runs(source, limit=20)
+                if not trend_data:
+                    console.print("[dim]No historical data found for trend charts[/dim]")
+            except Exception:
+                console.print("[dim]No historical data found for trend charts[/dim]")
+
+        # Build report config
+        report_config = ReportConfig(
+            title=title,
+            include_passed=include_passed,
+            include_trends=trends,
+            trend_days=trend_days,
+            dark_mode=dark_mode,
+            logo_url=logo,
+        )
+
         # Generate report
         with Progress(
             SpinnerColumn(),
@@ -1192,9 +1228,18 @@ def report(
             progress.add_task(f"Generating {output_format.upper()} report...", total=None)
 
             if output_format.lower() == "pdf":
-                generate_pdf_report(result, output, title=title, include_passed=include_passed)
+                reporter = PDFReporter(config=report_config)
             else:
-                generate_html_report(result, output, title=title, include_passed=include_passed)
+                reporter = HTMLReporter(config=report_config)
+
+            reporter.generate(
+                result,
+                output,
+                history=history_runs,
+                trend_data=trend_data,
+                row_count=dataset.row_count,
+                column_count=dataset.column_count,
+            )
 
         console.print(f"[green]SAVED[/green] Report saved to [cyan]{output}[/cyan]")
         console.print("[dim]Open in browser to view the report[/dim]")
