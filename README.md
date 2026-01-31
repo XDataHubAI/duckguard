@@ -553,19 +553,17 @@ seasonal.fit([10, 12, 11, 13, 9, 14])
 name: orders_validation
 description: Quality checks for the orders dataset
 
-columns:
+checks:
   order_id:
-    checks:
-      - type: not_null
-      - type: unique
+    - not_null
+    - unique
   quantity:
-    checks:
-      - type: between
-        value: [1, 1000]
+    - between: [1, 1000]
   status:
-    checks:
-      - type: allowed_values
-        value: [pending, shipped, delivered, cancelled, returned]
+    - allowed_values: [pending, shipped, delivered, cancelled, returned]
+  email:
+    - not_null:
+        severity: warning
 ```
 
 ```python
@@ -740,18 +738,48 @@ print(trends.summary())
 
 ## Reports & Notifications
 
+DuckGuard generates self-contained HTML reports with dark mode, trend charts, collapsible sections, sortable tables, and search — all in a single file with zero JavaScript dependencies.
+
+> **Live demos:**
+> [Light / Auto Theme](https://htmlpreview.github.io/?https://github.com/XDataHubAI/duckguard/blob/main/examples/reports/demo_report.html)
+> &bull;
+> [Dark Theme](https://htmlpreview.github.io/?https://github.com/XDataHubAI/duckguard/blob/main/examples/reports/demo_report_dark.html)
+
 ```python
-from duckguard.reports import generate_html_report, generate_pdf_report
+from duckguard.reports import HTMLReporter, ReportConfig, generate_html_report
+
+# Quick one-liner
+generate_html_report(exec_result, "report.html")
+
+# Full-featured report with trends and metadata
+config = ReportConfig(
+    title="Orders Quality Report",
+    dark_mode="auto",          # "auto", "light", or "dark"
+    include_trends=True,
+    include_metadata=True,
+)
+reporter = HTMLReporter(config=config)
+reporter.generate(
+    exec_result,
+    "report.html",
+    trend_data=trend_data,     # from HistoryStorage.get_trend()
+    row_count=dataset.row_count,
+    column_count=dataset.column_count,
+)
+
+# PDF export (requires weasyprint)
+from duckguard.reports import generate_pdf_report
+generate_pdf_report(exec_result, "report.pdf")
+```
+
+### Notifications
+
+```python
 from duckguard.notifications import (
     SlackNotifier, TeamsNotifier, EmailNotifier,
     format_results_text, format_results_markdown,
 )
 
-# HTML/PDF reports
-generate_html_report(exec_result, "report.html")
-generate_pdf_report(exec_result, "report.pdf")    # requires weasyprint
-
-# Notifications
 slack = SlackNotifier(webhook_url="https://hooks.slack.com/services/XXX")
 teams = TeamsNotifier(webhook_url="https://outlook.office.com/webhook/XXX")
 email = EmailNotifier(
@@ -836,8 +864,8 @@ duckguard check orders.csv --config duckguard.yaml
 # Auto-discover rules from data
 duckguard discover orders.csv > duckguard.yaml
 
-# Generate reports
-duckguard report orders.csv --output report.html
+# Generate reports (with dark mode and trend charts)
+duckguard report orders.csv --output report.html --dark-mode auto --trends
 
 # Anomaly detection
 duckguard anomaly orders.csv --method zscore

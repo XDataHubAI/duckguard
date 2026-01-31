@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from duckguard.reports.html_reporter import HTMLReporter, ReportConfig
 
 if TYPE_CHECKING:
-    from duckguard.history.storage import StoredRun
+    from duckguard.history.storage import StoredRun, TrendDataPoint
     from duckguard.rules.executor import ExecutionResult
 
 
@@ -45,6 +45,9 @@ class PDFReporter(HTMLReporter):
         output_path: str | Path,
         *,
         history: list[StoredRun] | None = None,
+        trend_data: list[TrendDataPoint] | None = None,
+        row_count: int | None = None,
+        column_count: int | None = None,
     ) -> Path:
         """Generate a PDF report.
 
@@ -52,6 +55,9 @@ class PDFReporter(HTMLReporter):
             result: ExecutionResult to report on
             output_path: Path to write PDF file
             history: Optional historical results for trends
+            trend_data: Optional trend data points for chart rendering
+            row_count: Optional dataset row count for metadata display
+            column_count: Optional dataset column count for metadata display
 
         Returns:
             Path to generated PDF report
@@ -63,8 +69,7 @@ class PDFReporter(HTMLReporter):
             from weasyprint import HTML
         except ImportError:
             raise ImportError(
-                "PDF reports require weasyprint. "
-                "Install with: pip install duckguard[reports]"
+                "PDF reports require weasyprint. " "Install with: pip install duckguard[reports]"
             )
 
         output_path = Path(output_path)
@@ -80,7 +85,14 @@ class PDFReporter(HTMLReporter):
 
         try:
             # Generate HTML report
-            super().generate(result, html_path, history=history)
+            super().generate(
+                result,
+                html_path,
+                history=history,
+                trend_data=trend_data,
+                row_count=row_count,
+                column_count=column_count,
+            )
 
             # Convert to PDF
             HTML(filename=str(html_path)).write_pdf(str(output_path))
@@ -97,6 +109,11 @@ class PDFReporter(HTMLReporter):
 def generate_pdf_report(
     result: ExecutionResult,
     output_path: str | Path,
+    *,
+    history: list[StoredRun] | None = None,
+    trend_data: list[TrendDataPoint] | None = None,
+    row_count: int | None = None,
+    column_count: int | None = None,
     **kwargs: Any,
 ) -> Path:
     """Convenience function to generate PDF report.
@@ -104,6 +121,10 @@ def generate_pdf_report(
     Args:
         result: ExecutionResult to report on
         output_path: Path to write PDF file
+        history: Optional historical results for trends
+        trend_data: Optional trend data points for chart rendering
+        row_count: Optional dataset row count
+        column_count: Optional dataset column count
         **kwargs: Additional ReportConfig options
 
     Returns:
@@ -111,4 +132,11 @@ def generate_pdf_report(
     """
     config = ReportConfig(**kwargs) if kwargs else None
     reporter = PDFReporter(config=config)
-    return reporter.generate(result, output_path)
+    return reporter.generate(
+        result,
+        output_path,
+        history=history,
+        trend_data=trend_data,
+        row_count=row_count,
+        column_count=column_count,
+    )
