@@ -621,14 +621,38 @@ if diff.has_breaking_changes:
 ```python
 from duckguard import AutoProfiler, SemanticAnalyzer, detect_type, detect_types_for_dataset
 
-# Profile entire dataset
+# Profile entire dataset — quality scores, pattern detection, and rule suggestions included
 profiler = AutoProfiler()
 profile = profiler.profile(orders)
 print(f"Columns: {profile.column_count}, Rows: {profile.row_count}")
+print(f"Quality: {profile.overall_quality_grade} ({profile.overall_quality_score:.1f}/100)")
+
+# Per-column quality grades and percentiles
+for col in profile.columns:
+    print(f"  {col.name}: grade={col.quality_grade}, nulls={col.null_percent:.1f}%")
+    if col.median_value is not None:
+        print(f"    p25={col.p25_value}, median={col.median_value}, p75={col.p75_value}")
+
+# Suggested rules (25+ pattern types: email, SSN, UUID, credit card, etc.)
 print(f"Suggested rules: {len(profile.suggested_rules)}")
 for rule in profile.suggested_rules[:5]:
     print(f"  {rule}")
 
+# Deep profiling — distribution analysis + outlier detection (numeric columns)
+deep_profiler = AutoProfiler(deep=True)
+deep_profile = deep_profiler.profile(orders)
+for col in deep_profile.columns:
+    if col.distribution_type:
+        print(f"  {col.name}: {col.distribution_type}, skew={col.skewness:.2f}")
+    if col.outlier_count is not None:
+        print(f"    outliers: {col.outlier_count} ({col.outlier_percentage:.1f}%)")
+
+# Configurable thresholds
+strict = AutoProfiler(null_threshold=0.0, unique_threshold=100.0, pattern_min_confidence=95.0)
+strict_profile = strict.profile(orders)
+```
+
+```python
 # Detect semantic type for a single column
 print(detect_type(orders, "email"))     # SemanticType.EMAIL
 print(detect_type(orders, "country"))   # SemanticType.COUNTRY_CODE
@@ -831,6 +855,10 @@ duckguard contract validate orders.csv
 
 # Dataset info
 duckguard info orders.csv
+
+# Profile dataset with quality scoring
+duckguard profile orders.csv
+duckguard profile orders.csv --deep --format json
 ```
 
 ---

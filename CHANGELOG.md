@@ -5,6 +5,46 @@ All notable changes to DuckGuard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-01-30
+
+Enhanced profiler: wired 4 existing helper modules into AutoProfiler, added `duckguard profile` CLI command, and made profiling thresholds configurable.
+
+### Added
+
+#### Integrated Profiling Pipeline
+The AutoProfiler now automatically leverages all 4 helper modules that previously required manual usage:
+
+- **PatternMatcher integration** — 25+ built-in patterns (email, SSN, UUID, credit card, etc.) replace the previous 7 hardcoded patterns. Detected patterns are included in suggested rules automatically.
+- **QualityScorer integration** — Every column now receives a quality score (0-100) and letter grade (A-F) across 4 dimensions: completeness, validity, consistency, accuracy. An aggregate `overall_quality_score` and `overall_quality_grade` are computed on the ProfileResult.
+- **DistributionAnalyzer integration** (deep mode) — When `deep=True`, numeric columns get distribution type, skewness, kurtosis, and normality test results.
+- **OutlierDetector integration** (deep mode) — When `deep=True`, numeric columns get outlier count and percentage via IQR method (no scipy required).
+
+#### Percentile Statistics
+Numeric columns now include `median_value`, `p25_value`, and `p75_value` in profile results. These values were already computed by the engine but previously discarded.
+
+#### Configurable Profiling Thresholds
+`AutoProfiler` and the `profile()` convenience function accept new parameters:
+- `null_threshold` — suggest not_null rule when null % is below this (default: 1.0)
+- `unique_threshold` — suggest unique rule when unique % is above this (default: 99.0)
+- `enum_max_values` — max distinct values for enum suggestion (default: 20)
+- `pattern_sample_size` — sample size for pattern detection (default: 1000)
+- `pattern_min_confidence` — minimum confidence for pattern matches (default: 90.0)
+
+#### `duckguard profile` CLI Command
+New CLI command for profiling datasets from the terminal:
+
+```bash
+duckguard profile data.csv                    # Rich table output
+duckguard profile data.csv --format json      # JSON output
+duckguard profile data.csv --deep             # Deep profiling
+duckguard profile data.csv -o profile.json    # Save to file
+```
+
+### Changed
+- `ColumnProfile` dataclass: 10 new optional fields (all backward-compatible `None` defaults)
+- `ProfileResult` dataclass: 2 new optional fields (`overall_quality_score`, `overall_quality_grade`)
+- AutoProfiler no longer contains inline pattern definitions — delegates to `PatternMatcher`
+
 ## [3.0.0] - 2026-01-27
 
 DuckGuard 3.0 is a major feature release that closes critical gaps with competitors while maintaining 100% backward compatibility with 2.x code. This release adds 23 new check types, enhanced profiling capabilities, and enterprise-grade security features.

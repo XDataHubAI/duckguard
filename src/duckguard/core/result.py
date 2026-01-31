@@ -130,28 +130,36 @@ class ValidationResult:
             if not self.failed_rows:
                 return pd.DataFrame(columns=["row_index", "column", "value", "expected", "reason"])
 
-            return pd.DataFrame([
-                {
-                    "row_index": row.row_index,
-                    "column": row.column,
-                    "value": row.value,
-                    "expected": row.expected,
-                    "reason": row.reason,
-                    **row.context,
-                }
-                for row in self.failed_rows
-            ])
+            return pd.DataFrame(
+                [
+                    {
+                        "row_index": row.row_index,
+                        "column": row.column,
+                        "value": row.value,
+                        "expected": row.expected,
+                        "reason": row.reason,
+                        **row.context,
+                    }
+                    for row in self.failed_rows
+                ]
+            )
         except ImportError:
-            raise ImportError("pandas is required for to_dataframe(). Install with: pip install pandas")
+            raise ImportError(
+                "pandas is required for to_dataframe(). Install with: pip install pandas"
+            )
 
     def summary(self) -> str:
         """Get a summary of the validation result with sample failures."""
         lines = [self.message]
 
         if self.failed_rows:
-            lines.append(f"\nSample of {len(self.failed_rows)} failing rows (total: {self.total_failures}):")
+            lines.append(
+                f"\nSample of {len(self.failed_rows)} failing rows (total: {self.total_failures}):"
+            )
             for row in self.failed_rows[:5]:
-                lines.append(f"  Row {row.row_index}: {row.column}={row.value!r} - {row.reason or row.expected}")
+                lines.append(
+                    f"  Row {row.row_index}: {row.column}={row.value!r} - {row.reason or row.expected}"
+                )
 
             if self.total_failures > 5:
                 lines.append(f"  ... and {self.total_failures - 5} more failures")
@@ -169,6 +177,8 @@ class ProfileResult:
     columns: list[ColumnProfile]
     suggested_rules: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
+    overall_quality_score: float | None = None
+    overall_quality_grade: str | None = None
 
 
 @dataclass
@@ -185,8 +195,19 @@ class ColumnProfile:
     max_value: Any | None = None
     mean_value: float | None = None
     stddev_value: float | None = None
+    median_value: float | None = None
+    p25_value: float | None = None
+    p75_value: float | None = None
     sample_values: list[Any] = field(default_factory=list)
     suggested_rules: list[str] = field(default_factory=list)
+    quality_score: float | None = None
+    quality_grade: str | None = None
+    distribution_type: str | None = None
+    skewness: float | None = None
+    kurtosis: float | None = None
+    is_normal: bool | None = None
+    outlier_count: int | None = None
+    outlier_percentage: float | None = None
 
 
 @dataclass

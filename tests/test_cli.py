@@ -58,3 +58,27 @@ class TestCLI:
         """Test info with non-existent file."""
         result = runner.invoke(app, ["info", "nonexistent.csv"])
         assert result.exit_code == 1
+
+    def test_profile_command(self, orders_csv):
+        """Test profile command displays summary and column profiles."""
+        result = runner.invoke(app, ["profile", orders_csv])
+        assert result.exit_code == 0
+        assert "Profile Summary" in result.stdout
+        assert "Column Profiles" in result.stdout
+
+    def test_profile_command_json_output(self, orders_csv):
+        """Test profile command with JSON format output."""
+        import json
+
+        result = runner.invoke(app, ["profile", orders_csv, "--format", "json"])
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert "columns" in data
+        assert "row_count" in data
+        assert data["row_count"] == 30
+
+    def test_profile_nonexistent_file(self):
+        """Test profile command with non-existent file."""
+        result = runner.invoke(app, ["profile", "nonexistent.csv"])
+        assert result.exit_code == 1
+        assert "Error" in result.stdout

@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
 from duckguard.core.dataset import Dataset
 from duckguard.core.result import ColumnProfile, ProfileResult
+
+# Grade thresholds (shared with QualityScorer for consistency)
+_GRADE_THRESHOLDS = {"A": 90.0, "B": 80.0, "C": 70.0, "D": 60.0}
+
+# Mapping from inferred dtype to QualityScorer expected_type
+_DTYPE_TO_EXPECTED_TYPE: dict[str, str] = {
+    "integer": "int",
+    "float": "float",
+    "string": "string",
+}
+
+
+def _score_to_grade(score: float) -> str:
+    """Convert a numeric score (0-100) to a letter grade."""
+    for grade, threshold in _GRADE_THRESHOLDS.items():
+        if score >= threshold:
+            return grade
+    return "F"
 
 
 @dataclass
@@ -26,33 +43,35 @@ class AutoProfiler:
 
     The profiler analyzes data patterns and generates Python assertions
     that can be used directly in test files.
+
+    Args:
+        dataset_var_name: Variable name to use in generated rules.
+        deep: Enable deep profiling (distribution analysis, outlier detection).
+            Requires scipy for distribution fitting. Default is False.
+        null_threshold: Suggest not_null rule if null percentage is below this value.
+        unique_threshold: Suggest unique rule if unique percentage is above this value.
+        enum_max_values: Maximum distinct values for enum check suggestion.
+        pattern_sample_size: Number of sample values for pattern detection.
+        pattern_min_confidence: Minimum confidence (0-100) for pattern match reporting.
     """
 
-    # Thresholds for rule generation
-    NULL_THRESHOLD_SUGGEST = 1.0  # Suggest not_null if nulls < 1%
-    UNIQUE_THRESHOLD_SUGGEST = 99.0  # Suggest unique if > 99% unique
-    ENUM_MAX_VALUES = 20  # Max distinct values to suggest enum check
-    PATTERN_SAMPLE_SIZE = 1000  # Sample size for pattern detection
-
-    # Common patterns to detect
-    PATTERNS = {
-        "email": r"^[\w\.-]+@[\w\.-]+\.\w+$",
-        "uuid": r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-        "phone": r"^\+?[\d\s\-\(\)]{10,}$",
-        "url": r"^https?://[\w\.-]+",
-        "ip_address": r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
-        "date_iso": r"^\d{4}-\d{2}-\d{2}$",
-        "datetime_iso": r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}",
-    }
-
-    def __init__(self, dataset_var_name: str = "data"):
-        """
-        Initialize the profiler.
-
-        Args:
-            dataset_var_name: Variable name to use in generated rules
-        """
+    def __init__(
+        self,
+        dataset_var_name: str = "data",
+        deep: bool = False,
+        null_threshold: float = 1.0,
+        unique_threshold: float = 99.0,
+        enum_max_values: int = 20,
+        pattern_sample_size: int = 1000,
+        pattern_min_confidence: float = 90.0,
+    ) -> None:
         self.dataset_var_name = dataset_var_name
+        self.deep = deep
+        self.null_threshold = null_threshold
+        self.unique_threshold = unique_threshold
+        self.enum_max_values = enum_max_values
+        self.pattern_sample_size = pattern_sample_size
+        self.pattern_min_confidence = pattern_min_confidence
 
     def profile(self, dataset: Dataset) -> ProfileResult:
         """
@@ -73,29 +92,62 @@ class AutoProfiler:
             column_profiles.append(col_profile)
             all_suggestions.extend(col_profile.suggested_rules)
 
+        # Compute aggregate quality score
+        scored_columns = [c for c in column_profiles if c.quality_score is not None]
+        overall_score: float | None = None
+        overall_grade: str | None = None
+        if scored_columns:
+            overall_score = sum(c.quality_score for c in scored_columns) / len(scored_columns)  # type: ignore[misc]
+            overall_grade = _score_to_grade(overall_score)
+
         return ProfileResult(
             source=dataset.source,
             row_count=dataset.row_count,
             column_count=dataset.column_count,
             columns=column_profiles,
             suggested_rules=all_suggestions,
+            overall_quality_score=overall_score,
+            overall_quality_grade=overall_grade,
         )
 
-    def _profile_column(self, col) -> ColumnProfile:
+    def _profile_column(self, col: Any) -> ColumnProfile:
         """Profile a single column."""
         # Get basic stats
         stats = col._get_stats()
         numeric_stats = col._get_numeric_stats()
 
         # Get sample values for pattern detection
-        sample_values = col.get_distinct_values(limit=self.PATTERN_SAMPLE_SIZE)
+        sample_values = col.get_distinct_values(limit=self.pattern_sample_size)
 
         # Generate suggestions
         suggestions = self._generate_suggestions(col, stats, numeric_stats, sample_values)
 
+        # Infer data type
+        inferred_dtype = self._infer_dtype(stats, sample_values)
+
+        # Quality scoring (requires numpy)
+        quality_score, quality_grade = self._compute_quality(sample_values, inferred_dtype)
+
+        # Deep profiling: distribution + outlier analysis (numeric columns only)
+        distribution_type = None
+        skewness = None
+        kurtosis = None
+        is_normal = None
+        outlier_count = None
+        outlier_percentage = None
+
+        if self.deep and numeric_stats.get("mean") is not None:
+            deep_results = self._deep_profile_numeric(col)
+            distribution_type = deep_results.get("distribution_type")
+            skewness = deep_results.get("skewness")
+            kurtosis = deep_results.get("kurtosis")
+            is_normal = deep_results.get("is_normal")
+            outlier_count = deep_results.get("outlier_count")
+            outlier_percentage = deep_results.get("outlier_percentage")
+
         return ColumnProfile(
             name=col.name,
-            dtype=self._infer_dtype(stats, sample_values),
+            dtype=inferred_dtype,
             null_count=stats.get("null_count", 0),
             null_percent=stats.get("null_percent", 0.0),
             unique_count=stats.get("unique_count", 0),
@@ -104,13 +156,85 @@ class AutoProfiler:
             max_value=stats.get("max_value"),
             mean_value=numeric_stats.get("mean"),
             stddev_value=numeric_stats.get("stddev"),
+            median_value=numeric_stats.get("median"),
+            p25_value=numeric_stats.get("p25"),
+            p75_value=numeric_stats.get("p75"),
             sample_values=sample_values[:10],
             suggested_rules=[s.rule for s in suggestions],
+            quality_score=quality_score,
+            quality_grade=quality_grade,
+            distribution_type=distribution_type,
+            skewness=skewness,
+            kurtosis=kurtosis,
+            is_normal=is_normal,
+            outlier_count=outlier_count,
+            outlier_percentage=outlier_percentage,
         )
+
+    def _compute_quality(
+        self, sample_values: list[Any], inferred_dtype: str
+    ) -> tuple[float | None, str | None]:
+        """Compute quality score and grade for a column using QualityScorer."""
+        try:
+            import numpy as np
+
+            from duckguard.profiler.quality_scorer import QualityScorer
+
+            if not sample_values:
+                return None, None
+
+            scorer = QualityScorer()
+            values_array = np.array(sample_values, dtype=object)
+            expected_type = _DTYPE_TO_EXPECTED_TYPE.get(inferred_dtype)
+            dimensions = scorer.calculate(values_array, expected_type=expected_type)
+            return dimensions.overall, dimensions.grade
+        except ImportError:
+            return None, None
+
+    def _deep_profile_numeric(self, col: Any) -> dict[str, Any]:
+        """Run deep profiling (distribution + outlier detection) on a numeric column."""
+        results: dict[str, Any] = {}
+        try:
+            import numpy as np
+
+            numeric_values = col._get_numeric_values(limit=10000)
+            if len(numeric_values) < 30:
+                return results
+
+            values_array = np.array(numeric_values, dtype=float)
+
+            # Distribution analysis (requires scipy)
+            try:
+                from duckguard.profiler.distribution_analyzer import DistributionAnalyzer
+
+                analyzer = DistributionAnalyzer()
+                analysis = analyzer.analyze(values_array)
+                results["distribution_type"] = analysis.best_fit_distribution
+                results["skewness"] = float(analysis.skewness)
+                results["kurtosis"] = float(analysis.kurtosis)
+                results["is_normal"] = analysis.is_normal
+            except (ImportError, ValueError):
+                pass
+
+            # Outlier detection (IQR method — works without scipy)
+            try:
+                from duckguard.profiler.outlier_detector import OutlierDetector
+
+                detector = OutlierDetector()
+                outlier_analysis = detector.detect(values_array, method="iqr")
+                results["outlier_count"] = outlier_analysis.outlier_count
+                results["outlier_percentage"] = outlier_analysis.outlier_percentage
+            except (ImportError, ValueError):
+                pass
+
+        except ImportError:
+            pass  # numpy not available
+
+        return results
 
     def _generate_suggestions(
         self,
-        col,
+        col: Any,
         stats: dict[str, Any],
         numeric_stats: dict[str, Any],
         sample_values: list[Any],
@@ -131,7 +255,7 @@ class AutoProfiler:
                     category="null",
                 )
             )
-        elif null_pct < self.NULL_THRESHOLD_SUGGEST:
+        elif null_pct < self.null_threshold:
             threshold = max(1, round(null_pct * 2))  # 2x buffer
             suggestions.append(
                 RuleSuggestion(
@@ -153,7 +277,7 @@ class AutoProfiler:
                     category="unique",
                 )
             )
-        elif unique_pct > self.UNIQUE_THRESHOLD_SUGGEST:
+        elif unique_pct > self.unique_threshold:
             suggestions.append(
                 RuleSuggestion(
                     rule=f"assert {var}.{col_name}.unique_percent > 99",
@@ -205,10 +329,10 @@ class AutoProfiler:
         unique_count = stats.get("unique_count", 0)
         total_count = stats.get("total_count", 0)
 
-        if 0 < unique_count <= self.ENUM_MAX_VALUES and total_count > unique_count * 2:
+        if 0 < unique_count <= self.enum_max_values and total_count > unique_count * 2:
             # Get all distinct values
-            distinct_values = col.get_distinct_values(limit=self.ENUM_MAX_VALUES + 1)
-            if len(distinct_values) <= self.ENUM_MAX_VALUES:
+            distinct_values = col.get_distinct_values(limit=self.enum_max_values + 1)
+            if len(distinct_values) <= self.enum_max_values:
                 # Format values for Python code
                 formatted_values = self._format_values(distinct_values)
                 suggestions.append(
@@ -220,39 +344,46 @@ class AutoProfiler:
                     )
                 )
 
-        # 5. Pattern suggestions for string columns
+        # 5. Pattern suggestions for string columns (using PatternMatcher)
         string_values = [v for v in sample_values if isinstance(v, str)]
         if string_values:
-            detected_pattern = self._detect_pattern(string_values)
-            if detected_pattern:
-                pattern_name, pattern = detected_pattern
-                suggestions.append(
-                    RuleSuggestion(
-                        rule=f'assert {var}.{col_name}.matches(r"{pattern}")',
-                        confidence=0.75,
-                        reason=f"Values appear to be {pattern_name}",
-                        category="pattern",
-                    )
-                )
+            pattern_suggestion = self._detect_pattern_with_matcher(col_name, string_values)
+            if pattern_suggestion:
+                suggestions.append(pattern_suggestion)
 
         return suggestions
 
-    def _detect_pattern(self, values: list[str]) -> tuple[str, str] | None:
-        """Detect common patterns in string values."""
-        if not values:
+    def _detect_pattern_with_matcher(
+        self, col_name: str, string_values: list[str]
+    ) -> RuleSuggestion | None:
+        """Detect patterns using the full PatternMatcher (25+ patterns)."""
+        var = self.dataset_var_name
+        try:
+            import numpy as np
+
+            from duckguard.profiler.pattern_matcher import PatternMatcher
+
+            matcher = PatternMatcher()
+            values_array = np.array(string_values, dtype=object)
+            matches = matcher.detect_patterns(
+                values_array, min_confidence=self.pattern_min_confidence
+            )
+
+            if not matches:
+                return None
+
+            best_match = matches[0]
+            semantic_type = matcher.suggest_semantic_type(matches)
+            label = semantic_type or best_match.pattern_type
+
+            return RuleSuggestion(
+                rule=f'assert {var}.{col_name}.matches(r"{best_match.pattern_regex}")',
+                confidence=best_match.confidence / 100.0,
+                reason=f"Values appear to be {label} ({best_match.confidence:.0f}% match)",
+                category="pattern",
+            )
+        except ImportError:
             return None
-
-        # Sample for pattern detection
-        sample = values[: min(100, len(values))]
-
-        for pattern_name, pattern in self.PATTERNS.items():
-            matches = sum(1 for v in sample if re.match(pattern, str(v), re.IGNORECASE))
-            match_rate = matches / len(sample)
-
-            if match_rate > 0.9:  # 90% match threshold
-                return pattern_name, pattern
-
-        return None
 
     def _infer_dtype(self, stats: dict[str, Any], sample_values: list[Any]) -> str:
         """Infer the data type from statistics and samples."""
@@ -313,7 +444,7 @@ class AutoProfiler:
             Python code string for a test file
         """
         self.dataset_var_name = output_var
-        profile = self.profile(dataset)
+        result = self.profile(dataset)
 
         lines = [
             '"""Auto-generated data quality tests by DuckGuard."""',
@@ -330,7 +461,7 @@ class AutoProfiler:
         ]
 
         # Group suggestions by column
-        for col_profile in profile.columns:
+        for col_profile in result.columns:
             if col_profile.suggested_rules:
                 lines.append(f"    # {col_profile.name} validations")
                 for rule in col_profile.suggested_rules:
@@ -340,16 +471,33 @@ class AutoProfiler:
         return "\n".join(lines)
 
 
-def profile(dataset: Dataset, dataset_var_name: str = "data") -> ProfileResult:
+def profile(
+    dataset: Dataset,
+    dataset_var_name: str = "data",
+    deep: bool = False,
+    null_threshold: float = 1.0,
+    unique_threshold: float = 99.0,
+    pattern_min_confidence: float = 90.0,
+) -> ProfileResult:
     """
     Convenience function to profile a dataset.
 
     Args:
         dataset: Dataset to profile
         dataset_var_name: Variable name for generated rules
+        deep: Enable deep profiling (distribution, outlier detection)
+        null_threshold: Suggest not_null rule if null percentage is below this
+        unique_threshold: Suggest unique rule if unique percentage is above this
+        pattern_min_confidence: Minimum confidence (0-100) for pattern matches
 
     Returns:
         ProfileResult
     """
-    profiler = AutoProfiler(dataset_var_name=dataset_var_name)
+    profiler = AutoProfiler(
+        dataset_var_name=dataset_var_name,
+        deep=deep,
+        null_threshold=null_threshold,
+        unique_threshold=unique_threshold,
+        pattern_min_confidence=pattern_min_confidence,
+    )
     return profiler.profile(dataset)

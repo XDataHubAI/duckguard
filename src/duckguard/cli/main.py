@@ -6,6 +6,7 @@ A modern, beautiful CLI for data quality that just works.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -28,11 +29,13 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
-        console.print(Panel(
-            f"[bold blue]DuckGuard[/bold blue] v{__version__}\n"
-            "[dim]The fast, simple data quality tool[/dim]",
-            border_style="blue"
-        ))
+        console.print(
+            Panel(
+                f"[bold blue]DuckGuard[/bold blue] v{__version__}\n"
+                "[dim]The fast, simple data quality tool[/dim]",
+                border_style="blue",
+            )
+        )
         raise typer.Exit()
 
 
@@ -54,10 +57,16 @@ def main(
 @app.command()
 def check(
     source: str = typer.Argument(..., help="Path to file or connection string"),
-    config: str | None = typer.Option(None, "--config", "-c", help="Path to duckguard.yaml rules file"),
+    config: str | None = typer.Option(
+        None, "--config", "-c", help="Path to duckguard.yaml rules file"
+    ),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
-    not_null: list[str] | None = typer.Option(None, "--not-null", "-n", help="Columns that must not be null"),
-    unique: list[str] | None = typer.Option(None, "--unique", "-u", help="Columns that must be unique"),
+    not_null: list[str] | None = typer.Option(
+        None, "--not-null", "-n", help="Columns that must not be null"
+    ),
+    unique: list[str] | None = typer.Option(
+        None, "--unique", "-u", help="Columns that must be unique"
+    ),
     output: str | None = typer.Option(None, "--output", "-o", help="Output file (json)"),
     verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
 ) -> None:
@@ -115,7 +124,9 @@ def check(
             results = []
 
             # Row count check
-            results.append(("Row count > 0", dataset.row_count > 0, f"{dataset.row_count:,} rows", None))
+            results.append(
+                ("Row count > 0", dataset.row_count > 0, f"{dataset.row_count:,} rows", None)
+            )
 
             # Not null checks
             if not_null:
@@ -123,14 +134,18 @@ def check(
                     if col_name in dataset.columns:
                         col = dataset[col_name]
                         passed = col.null_count == 0
-                        results.append((
-                            f"{col_name} not null",
-                            passed,
-                            f"{col.null_count:,} nulls ({col.null_percent:.1f}%)",
-                            col_name
-                        ))
+                        results.append(
+                            (
+                                f"{col_name} not null",
+                                passed,
+                                f"{col.null_count:,} nulls ({col.null_percent:.1f}%)",
+                                col_name,
+                            )
+                        )
                     else:
-                        results.append((f"{col_name} not null", False, "Column not found", col_name))
+                        results.append(
+                            (f"{col_name} not null", False, "Column not found", col_name)
+                        )
 
             # Unique checks
             if unique:
@@ -139,12 +154,14 @@ def check(
                         col = dataset[col_name]
                         passed = col.unique_percent == 100
                         dup_count = col.total_count - col.unique_count
-                        results.append((
-                            f"{col_name} unique",
-                            passed,
-                            f"{col.unique_percent:.1f}% unique ({dup_count:,} duplicates)",
-                            col_name
-                        ))
+                        results.append(
+                            (
+                                f"{col_name} unique",
+                                passed,
+                                f"{col.unique_percent:.1f}% unique ({dup_count:,} duplicates)",
+                                col_name,
+                            )
+                        )
                     else:
                         results.append((f"{col_name} unique", False, "Column not found", col_name))
 
@@ -179,7 +196,9 @@ def check(
 def discover(
     source: str = typer.Argument(..., help="Path to file or connection string"),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output file for rules (duckguard.yaml)"),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Output file for rules (duckguard.yaml)"
+    ),
     format: str = typer.Option("yaml", "--format", "-f", help="Output format: yaml, python"),
 ) -> None:
     """
@@ -228,15 +247,179 @@ def discover(
         else:
             # Display YAML
             yaml_content = ruleset_to_yaml(ruleset)
-            console.print(Panel(
-                Syntax(yaml_content, "yaml", theme="monokai"),
-                title="Generated Rules (duckguard.yaml)",
-                border_style="green"
-            ))
+            console.print(
+                Panel(
+                    Syntax(yaml_content, "yaml", theme="monokai"),
+                    title="Generated Rules (duckguard.yaml)",
+                    border_style="green",
+                )
+            )
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
+
+
+@app.command(name="profile")
+def profile_command(
+    source: str = typer.Argument(..., help="Path to file or connection string"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
+    deep: bool = typer.Option(
+        False, "--deep", "-d", help="Enable deep profiling (distribution, outliers)"
+    ),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (json)"),
+    output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
+) -> None:
+    """
+    Profile a data source and suggest validation rules.
+
+    Analyzes data patterns, statistics, and quality to generate
+    a comprehensive profile with rule suggestions.
+
+    [bold]Examples:[/bold]
+        duckguard profile data.csv
+        duckguard profile data.csv --deep
+        duckguard profile data.csv --format json
+        duckguard profile postgres://localhost/db --table orders
+    """
+    import json as json_module
+
+    from duckguard.connectors import connect
+    from duckguard.profiler import AutoProfiler
+
+    if output_format != "json":
+        console.print(f"\n[bold blue]DuckGuard[/bold blue] Profiling: [cyan]{source}[/cyan]\n")
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            _task = progress.add_task("Profiling data...", total=None)  # noqa: F841
+            dataset = connect(source, table=table)
+            profiler = AutoProfiler(deep=deep)
+            result = profiler.profile(dataset)
+
+        if output_format == "json":
+            data = _profile_to_dict(result)
+            json_str = json_module.dumps(data, indent=2, default=str)
+            if output:
+                Path(output).write_text(json_str, encoding="utf-8")
+                console.print(f"[green]SAVED[/green] Profile saved to [cyan]{output}[/cyan]")
+            else:
+                print(json_str)
+        else:
+            _display_profile_result(result)
+
+            if output:
+                data = _profile_to_dict(result)
+                Path(output).write_text(
+                    json_module.dumps(data, indent=2, default=str), encoding="utf-8"
+                )
+                console.print(f"\n[green]SAVED[/green] Profile saved to [cyan]{output}[/cyan]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+def _display_profile_result(result: Any) -> None:
+    """Display profiling results in a rich table."""
+    _grade_colors = {"A": "green", "B": "blue", "C": "yellow", "D": "orange1", "F": "red"}
+
+    summary_parts = [
+        f"Rows: [cyan]{result.row_count:,}[/cyan]",
+        f"Columns: [cyan]{result.column_count}[/cyan]",
+        f"Rules Suggested: [cyan]{len(result.suggested_rules)}[/cyan]",
+    ]
+    if result.overall_quality_score is not None:
+        color = _grade_colors.get(result.overall_quality_grade, "white")
+        summary_parts.append(
+            f"Quality: [{color}]{result.overall_quality_score:.0f}/100 "
+            f"({result.overall_quality_grade})[/{color}]"
+        )
+
+    console.print(Panel("\n".join(summary_parts), title="Profile Summary", border_style="blue"))
+    console.print()
+
+    col_table = Table(title="Column Profiles")
+    col_table.add_column("Column", style="cyan")
+    col_table.add_column("Type", style="magenta")
+    col_table.add_column("Nulls", justify="right")
+    col_table.add_column("Unique", justify="right")
+    col_table.add_column("Min", justify="right")
+    col_table.add_column("Max", justify="right")
+    col_table.add_column("Grade", justify="center")
+    col_table.add_column("Rules", justify="right")
+
+    for col in result.columns:
+        grade_str = ""
+        if col.quality_grade:
+            color = _grade_colors.get(col.quality_grade, "white")
+            grade_str = f"[{color}]{col.quality_grade}[/{color}]"
+
+        col_table.add_row(
+            col.name,
+            col.dtype,
+            f"{col.null_percent:.1f}%",
+            f"{col.unique_percent:.1f}%",
+            str(col.min_value) if col.min_value is not None else "-",
+            str(col.max_value) if col.max_value is not None else "-",
+            grade_str or "-",
+            str(len(col.suggested_rules)),
+        )
+
+    console.print(col_table)
+
+    if result.suggested_rules:
+        console.print()
+        console.print(f"[bold]Suggested Rules ({len(result.suggested_rules)}):[/bold]")
+        for rule in result.suggested_rules[:20]:
+            console.print(f"  {rule}")
+        if len(result.suggested_rules) > 20:
+            console.print(f"  [dim]... and {len(result.suggested_rules) - 20} more[/dim]")
+
+
+def _profile_to_dict(result: Any) -> dict[str, Any]:
+    """Convert ProfileResult to a JSON-serializable dict."""
+
+    return {
+        "source": result.source,
+        "row_count": result.row_count,
+        "column_count": result.column_count,
+        "overall_quality_score": result.overall_quality_score,
+        "overall_quality_grade": result.overall_quality_grade,
+        "columns": [
+            {
+                "name": col.name,
+                "dtype": col.dtype,
+                "null_count": col.null_count,
+                "null_percent": col.null_percent,
+                "unique_count": col.unique_count,
+                "unique_percent": col.unique_percent,
+                "min_value": col.min_value,
+                "max_value": col.max_value,
+                "mean_value": col.mean_value,
+                "stddev_value": col.stddev_value,
+                "median_value": col.median_value,
+                "p25_value": col.p25_value,
+                "p75_value": col.p75_value,
+                "quality_score": col.quality_score,
+                "quality_grade": col.quality_grade,
+                "distribution_type": col.distribution_type,
+                "skewness": col.skewness,
+                "kurtosis": col.kurtosis,
+                "is_normal": col.is_normal,
+                "outlier_count": col.outlier_count,
+                "outlier_percentage": col.outlier_percentage,
+                "suggested_rules": col.suggested_rules,
+            }
+            for col in result.columns
+        ],
+        "suggested_rules": result.suggested_rules,
+    }
 
 
 @app.command()
@@ -274,7 +457,9 @@ def contract(
                 console.print("[red]Error:[/red] Source required for generate")
                 raise typer.Exit(1)
 
-            console.print(f"\n[bold blue]DuckGuard[/bold blue] Generating contract for: [cyan]{source}[/cyan]\n")
+            console.print(
+                f"\n[bold blue]DuckGuard[/bold blue] Generating contract for: [cyan]{source}[/cyan]\n"
+            )
 
             with Progress(
                 SpinnerColumn(),
@@ -338,10 +523,16 @@ def contract(
 def anomaly(
     source: str = typer.Argument(..., help="Path to file or connection string"),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
-    method: str = typer.Option("zscore", "--method", "-m", help="Method: zscore, iqr, percent_change, baseline, ks_test"),
+    method: str = typer.Option(
+        "zscore", "--method", "-m", help="Method: zscore, iqr, percent_change, baseline, ks_test"
+    ),
     threshold: float | None = typer.Option(None, "--threshold", help="Detection threshold"),
-    columns: list[str] | None = typer.Option(None, "--column", "-c", help="Specific columns to check"),
-    learn_baseline: bool = typer.Option(False, "--learn-baseline", "-L", help="Learn and store baseline from current data"),
+    columns: list[str] | None = typer.Option(
+        None, "--column", "-c", help="Specific columns to check"
+    ),
+    learn_baseline: bool = typer.Option(
+        False, "--learn-baseline", "-L", help="Learn and store baseline from current data"
+    ),
 ) -> None:
     """
     Detect anomalies in data.
@@ -364,7 +555,9 @@ def anomaly(
     from duckguard.anomaly import detect_anomalies
     from duckguard.connectors import connect
 
-    console.print(f"\n[bold blue]DuckGuard[/bold blue] Detecting anomalies in: [cyan]{source}[/cyan]\n")
+    console.print(
+        f"\n[bold blue]DuckGuard[/bold blue] Detecting anomalies in: [cyan]{source}[/cyan]\n"
+    )
 
     try:
         with Progress(
@@ -401,7 +594,9 @@ def anomaly(
                         learned += 1
 
                 console.print(f"[green]LEARNED[/green] Baselines stored for {learned} columns")
-                console.print("[dim]Use --method baseline to compare against stored baselines[/dim]")
+                console.print(
+                    "[dim]Use --method baseline to compare against stored baselines[/dim]"
+                )
                 return
 
             # Regular anomaly detection
@@ -441,10 +636,7 @@ def info(
         dataset = connect(source, table=table)
         analyzer = SemanticAnalyzer()
 
-        console.print(Panel(
-            f"[bold]{dataset.name}[/bold]",
-            border_style="blue"
-        ))
+        console.print(Panel(f"[bold]{dataset.name}[/bold]", border_style="blue"))
 
         # Basic info
         info_table = Table(show_header=False, box=None)
@@ -495,6 +687,7 @@ def info(
 
 
 # Helper display functions
+
 
 def _display_execution_result(result, verbose: bool = False) -> None:
     """Display rule execution results."""
@@ -552,11 +745,13 @@ def _display_quality_score(quality) -> None:
     color = grade_colors.get(quality.grade, "white")
 
     console.print()
-    console.print(Panel(
-        f"[bold]Quality Score: [{color}]{quality.overall:.0f}/100[/{color}] "
-        f"(Grade: [{color}]{quality.grade}[/{color}])[/bold]",
-        border_style=color,
-    ))
+    console.print(
+        Panel(
+            f"[bold]Quality Score: [{color}]{quality.overall:.0f}/100[/{color}] "
+            f"(Grade: [{color}]{quality.grade}[/{color}])[/bold]",
+            border_style=color,
+        )
+    )
 
 
 def _display_discovery_results(analysis, ruleset) -> None:
@@ -566,11 +761,13 @@ def _display_discovery_results(analysis, ruleset) -> None:
 
     # PII warning
     if analysis.pii_columns:
-        console.print(Panel(
-            "[yellow]WARNING: PII Detected[/yellow]\n" +
-            "\n".join(f"  - {col}" for col in analysis.pii_columns),
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                "[yellow]WARNING: PII Detected[/yellow]\n"
+                + "\n".join(f"  - {col}" for col in analysis.pii_columns),
+                border_style="yellow",
+            )
+        )
         console.print()
 
     # Column analysis table
@@ -611,7 +808,7 @@ def _display_contract(contract) -> None:
     table.add_column("PII")
 
     for field_obj in contract.schema[:15]:
-        type_str = field_obj.type.value if hasattr(field_obj.type, 'value') else str(field_obj.type)
+        type_str = field_obj.type.value if hasattr(field_obj.type, "value") else str(field_obj.type)
         table.add_row(
             field_obj.name,
             type_str,
@@ -645,7 +842,9 @@ def _display_contract_validation(result) -> None:
         table.add_column("Severity")
 
         for v in result.violations[:20]:
-            sev_style = {"error": "red", "warning": "yellow", "info": "dim"}.get(v.severity.value, "white")
+            sev_style = {"error": "red", "warning": "yellow", "info": "dim"}.get(
+                v.severity.value, "white"
+            )
             table.add_row(
                 v.type.value,
                 v.field or "-",
@@ -696,7 +895,9 @@ def _display_anomaly_report(report) -> None:
         console.print("[green]No anomalies detected[/green]")
         return
 
-    console.print(f"[yellow bold]WARNING: {report.anomaly_count} anomalies detected[/yellow bold]\n")
+    console.print(
+        f"[yellow bold]WARNING: {report.anomaly_count} anomalies detected[/yellow bold]\n"
+    )
 
     table = Table(title="Anomalies")
     table.add_column("Column", style="cyan")
@@ -727,10 +928,7 @@ def _save_results(output: str, dataset, results) -> None:
     }
 
     if results:
-        data["checks"] = [
-            {"name": r[0], "passed": r[1], "details": r[2]}
-            for r in results
-        ]
+        data["checks"] = [{"name": r[0], "passed": r[1], "details": r[2]} for r in results]
 
     Path(output).write_text(json.dumps(data, indent=2))
 
@@ -767,7 +965,9 @@ def history(
 
         if trend and source:
             # Show trend analysis
-            console.print(f"\n[bold blue]DuckGuard[/bold blue] Trend Analysis: [cyan]{source}[/cyan]\n")
+            console.print(
+                f"\n[bold blue]DuckGuard[/bold blue] Trend Analysis: [cyan]{source}[/cyan]\n"
+            )
 
             analyzer = TrendAnalyzer(storage)
             analysis = analyzer.analyze(source, days=days)
@@ -790,20 +990,24 @@ def history(
                 "stable": "[=]",
             }.get(analysis.score_trend, "[=]")
 
-            console.print(Panel(
-                f"[bold]Quality Trend: [{trend_color}]{trend_symbol} {analysis.score_trend.upper()}[/{trend_color}][/bold]\n\n"
-                f"Current Score: [cyan]{analysis.current_score:.1f}%[/cyan]\n"
-                f"Average Score: [cyan]{analysis.average_score:.1f}%[/cyan]\n"
-                f"Min/Max: [dim]{analysis.min_score:.1f}% - {analysis.max_score:.1f}%[/dim]\n"
-                f"Change: [{trend_color}]{analysis.trend_change:+.1f}%[/{trend_color}]\n"
-                f"Total Runs: [cyan]{analysis.total_runs}[/cyan]\n"
-                f"Pass Rate: [cyan]{analysis.pass_rate:.1f}%[/cyan]",
-                title=f"Last {days} Days",
-                border_style=trend_color,
-            ))
+            console.print(
+                Panel(
+                    f"[bold]Quality Trend: [{trend_color}]{trend_symbol} {analysis.score_trend.upper()}[/{trend_color}][/bold]\n\n"
+                    f"Current Score: [cyan]{analysis.current_score:.1f}%[/cyan]\n"
+                    f"Average Score: [cyan]{analysis.average_score:.1f}%[/cyan]\n"
+                    f"Min/Max: [dim]{analysis.min_score:.1f}% - {analysis.max_score:.1f}%[/dim]\n"
+                    f"Change: [{trend_color}]{analysis.trend_change:+.1f}%[/{trend_color}]\n"
+                    f"Total Runs: [cyan]{analysis.total_runs}[/cyan]\n"
+                    f"Pass Rate: [cyan]{analysis.pass_rate:.1f}%[/cyan]",
+                    title=f"Last {days} Days",
+                    border_style=trend_color,
+                )
+            )
 
             if analysis.anomalies:
-                console.print(f"\n[yellow]Anomalies detected on: {', '.join(analysis.anomalies)}[/yellow]")
+                console.print(
+                    f"\n[yellow]Anomalies detected on: {', '.join(analysis.anomalies)}[/yellow]"
+                )
 
             # Show daily data if available
             if analysis.daily_data and len(analysis.daily_data) <= 14:
@@ -816,7 +1020,11 @@ def history(
 
                 for day in analysis.daily_data:
                     pass_rate = (day.passed_count / day.run_count * 100) if day.run_count > 0 else 0
-                    score_style = "green" if day.avg_score >= 80 else "yellow" if day.avg_score >= 60 else "red"
+                    score_style = (
+                        "green"
+                        if day.avg_score >= 80
+                        else "yellow" if day.avg_score >= 60 else "red"
+                    )
                     table.add_row(
                         day.date,
                         f"[{score_style}]{day.avg_score:.1f}%[/{score_style}]",
@@ -829,7 +1037,9 @@ def history(
         else:
             # Show run history
             if source:
-                console.print(f"\n[bold blue]DuckGuard[/bold blue] History: [cyan]{source}[/cyan]\n")
+                console.print(
+                    f"\n[bold blue]DuckGuard[/bold blue] History: [cyan]{source}[/cyan]\n"
+                )
                 runs = storage.get_runs(source, limit=20)
             else:
                 console.print("\n[bold blue]DuckGuard[/bold blue] Recent Validation History\n")
@@ -867,7 +1077,11 @@ def history(
                 table.add_column("Checks", justify="right")
 
                 for run in runs:
-                    score_style = "green" if run.quality_score >= 80 else "yellow" if run.quality_score >= 60 else "red"
+                    score_style = (
+                        "green"
+                        if run.quality_score >= 80
+                        else "yellow" if run.quality_score >= 60 else "red"
+                    )
                     status = "[green]PASS[/green]" if run.passed else "[red]FAIL[/red]"
 
                     table.add_row(
@@ -893,12 +1107,16 @@ def history(
 @app.command()
 def report(
     source: str = typer.Argument(..., help="Data source path or connection string"),
-    config: str | None = typer.Option(None, "--config", "-c", help="Path to duckguard.yaml rules file"),
+    config: str | None = typer.Option(
+        None, "--config", "-c", help="Path to duckguard.yaml rules file"
+    ),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
     output_format: str = typer.Option("html", "--format", "-f", help="Output format: html, pdf"),
     output: str = typer.Option("report.html", "--output", "-o", help="Output file path"),
     title: str = typer.Option("DuckGuard Data Quality Report", "--title", help="Report title"),
-    include_passed: bool = typer.Option(True, "--include-passed/--no-passed", help="Include passed checks"),
+    include_passed: bool = typer.Option(
+        True, "--include-passed/--no-passed", help="Include passed checks"
+    ),
     store: bool = typer.Option(False, "--store", "-s", help="Store results in history"),
 ) -> None:
     """
@@ -997,7 +1215,9 @@ def report(
 def freshness(
     source: str = typer.Argument(..., help="Data source path"),
     column: str | None = typer.Option(None, "--column", "-c", help="Timestamp column to check"),
-    max_age: str = typer.Option("24h", "--max-age", "-m", help="Maximum acceptable age: 1h, 6h, 24h, 7d"),
+    max_age: str = typer.Option(
+        "24h", "--max-age", "-m", help="Maximum acceptable age: 1h, 6h, 24h, 7d"
+    ),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
 ) -> None:
     """
@@ -1038,6 +1258,7 @@ def freshness(
             else:
                 # Try file mtime first, fallback to dataset
                 from pathlib import Path
+
                 if Path(source).exists():
                     result = monitor.check_file_mtime(source)
                 else:
@@ -1051,15 +1272,17 @@ def freshness(
             status_color = "green" if result.is_fresh else "red"
             status_text = "FRESH" if result.is_fresh else "STALE"
 
-            console.print(Panel(
-                f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
-                f"Last Modified: [cyan]{result.last_modified.strftime('%Y-%m-%d %H:%M:%S') if result.last_modified else 'Unknown'}[/cyan]\n"
-                f"Age: [cyan]{result.age_human}[/cyan]\n"
-                f"Threshold: [dim]{max_age}[/dim]\n"
-                f"Method: [dim]{result.method.value}[/dim]",
-                title="Freshness Check",
-                border_style=status_color,
-            ))
+            console.print(
+                Panel(
+                    f"[bold {status_color}]{status_text}[/bold {status_color}]\n\n"
+                    f"Last Modified: [cyan]{result.last_modified.strftime('%Y-%m-%d %H:%M:%S') if result.last_modified else 'Unknown'}[/cyan]\n"
+                    f"Age: [cyan]{result.age_human}[/cyan]\n"
+                    f"Threshold: [dim]{max_age}[/dim]\n"
+                    f"Method: [dim]{result.method.value}[/dim]",
+                    title="Freshness Check",
+                    border_style=status_color,
+                )
+            )
 
         if not result.is_fresh:
             raise typer.Exit(1)
@@ -1072,7 +1295,9 @@ def freshness(
 @app.command()
 def schema(
     source: str = typer.Argument(..., help="Data source path"),
-    action: str = typer.Option("show", "--action", "-a", help="Action: show, capture, history, changes"),
+    action: str = typer.Option(
+        "show", "--action", "-a", help="Action: show, capture, history, changes"
+    ),
     table: str | None = typer.Option(None, "--table", "-t", help="Table name (for databases)"),
     output_format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
     limit: int = typer.Option(10, "--limit", "-l", help="Number of results to show"),
@@ -1132,9 +1357,15 @@ def schema(
                 progress.add_task("Capturing schema snapshot...", total=None)
                 snapshot = tracker.capture(dataset)
 
-            console.print(f"[green]CAPTURED[/green] Schema snapshot: [cyan]{snapshot.snapshot_id[:8]}...[/cyan]")
-            console.print(f"[dim]Columns: {snapshot.column_count} | Rows: {snapshot.row_count:,}[/dim]")
-            console.print(f"[dim]Captured at: {snapshot.captured_at.strftime('%Y-%m-%d %H:%M:%S')}[/dim]")
+            console.print(
+                f"[green]CAPTURED[/green] Schema snapshot: [cyan]{snapshot.snapshot_id[:8]}...[/cyan]"
+            )
+            console.print(
+                f"[dim]Columns: {snapshot.column_count} | Rows: {snapshot.row_count:,}[/dim]"
+            )
+            console.print(
+                f"[dim]Captured at: {snapshot.captured_at.strftime('%Y-%m-%d %H:%M:%S')}[/dim]"
+            )
 
         elif action == "history":
             history = tracker.get_history(source, limit=limit)
@@ -1176,11 +1407,15 @@ def schema(
 
             if not report.has_changes:
                 console.print("[green]No schema changes detected[/green]")
-                console.print(f"[dim]Snapshot captured: {report.current_snapshot.snapshot_id[:8]}...[/dim]")
+                console.print(
+                    f"[dim]Snapshot captured: {report.current_snapshot.snapshot_id[:8]}...[/dim]"
+                )
                 return
 
             # Display changes
-            console.print(f"[yellow bold]{len(report.changes)} schema changes detected[/yellow bold]\n")
+            console.print(
+                f"[yellow bold]{len(report.changes)} schema changes detected[/yellow bold]\n"
+            )
 
             if report.has_breaking_changes:
                 console.print("[red bold]BREAKING CHANGES:[/red bold]")
