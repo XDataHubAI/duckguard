@@ -1487,5 +1487,112 @@ def schema(
         raise typer.Exit(1)
 
 
+# =========================================================================
+# AI-Powered Commands
+# =========================================================================
+
+
+@app.command()
+def explain(
+    source: str = typer.Argument(..., help="Path to file or connection string"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
+    focus: str | None = typer.Option(None, "--focus", "-f", help="Column or aspect to focus on"),
+    detail: str = typer.Option("medium", "--detail", "-d", help="Detail level: brief, medium, detailed"),
+) -> None:
+    """Explain data quality issues in plain English (AI-powered).
+
+    Requires: pip install duckguard[llm]
+    """
+    try:
+        from duckguard.connectors import connect as dg_connect
+        from duckguard.ai import explain as ai_explain
+
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
+            dataset = dg_connect(source, table=table)
+
+        with console.status("[bold green]Analyzing with AI..."):
+            result = ai_explain(dataset, focus=focus, detail=detail)
+
+        console.print()
+        console.print(Panel(result, title="[bold]Data Quality Explanation[/bold]", border_style="green"))
+
+    except ImportError:
+        console.print("[red]Error:[/red] AI features require LLM packages.")
+        console.print("Install with: [bold]pip install duckguard[llm][/bold]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def suggest(
+    source: str = typer.Argument(..., help="Path to file or connection string"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (default: stdout)"),
+    strict: bool = typer.Option(False, "--strict", help="Generate stricter rules"),
+) -> None:
+    """Generate validation rules using AI (AI-powered).
+
+    Requires: pip install duckguard[llm]
+    """
+    try:
+        from duckguard.connectors import connect as dg_connect
+        from duckguard.ai import suggest_rules
+
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
+            dataset = dg_connect(source, table=table)
+
+        with console.status("[bold green]Generating rules with AI..."):
+            rules_yaml = suggest_rules(dataset, strict=strict)
+
+        if output:
+            with open(output, "w") as f:
+                f.write(rules_yaml)
+            console.print(f"[green]Rules written to {output}[/green]")
+        else:
+            console.print()
+            console.print(Syntax(rules_yaml, "yaml", theme="monokai"))
+
+    except ImportError:
+        console.print("[red]Error:[/red] AI features require LLM packages.")
+        console.print("Install with: [bold]pip install duckguard[llm][/bold]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def fix(
+    source: str = typer.Argument(..., help="Path to file or connection string"),
+    table: str | None = typer.Option(None, "--table", "-t", help="Table name"),
+) -> None:
+    """Suggest data quality fixes using AI (AI-powered).
+
+    Requires: pip install duckguard[llm]
+    """
+    try:
+        from duckguard.connectors import connect as dg_connect
+        from duckguard.ai import suggest_fixes
+
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
+            dataset = dg_connect(source, table=table)
+
+        with console.status("[bold green]Analyzing fixes with AI..."):
+            result = suggest_fixes(dataset)
+
+        console.print()
+        console.print(Panel(result, title="[bold]Suggested Fixes[/bold]", border_style="yellow"))
+
+    except ImportError:
+        console.print("[red]Error:[/red] AI features require LLM packages.")
+        console.print("Install with: [bold]pip install duckguard[llm][/bold]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

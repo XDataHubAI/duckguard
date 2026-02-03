@@ -609,9 +609,9 @@ class ConditionalCheckHandler:
         # Normalize path for DuckDB (forward slashes work on all platforms)
         source_path = dataset._source.replace('\\', '/')
 
-        # Format allowed values for SQL IN clause
+        # Format allowed values for SQL IN clause (with proper escaping)
         if isinstance(allowed_values[0], str):
-            values_str = ", ".join(f"'{v}'" for v in allowed_values)
+            values_str = ", ".join(f"'{v.replace(chr(39), chr(39)+chr(39))}'" for v in allowed_values)
         else:
             values_str = ", ".join(str(v) for v in allowed_values)
 
@@ -701,11 +701,12 @@ class ConditionalCheckHandler:
         # Normalize path for DuckDB (forward slashes work on all platforms)
         source_path = dataset._source.replace('\\', '/')
 
+        safe_pattern = pattern.replace("'", "''")
         sql = f"""
             SELECT COUNT(*) as violations
             FROM '{source_path}'
             WHERE ({condition})
-              AND NOT regexp_matches({column}::VARCHAR, '{pattern}')
+              AND NOT regexp_matches({column}::VARCHAR, '{safe_pattern}')
         """
 
         try:

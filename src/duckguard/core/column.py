@@ -13,6 +13,14 @@ if TYPE_CHECKING:
 DEFAULT_SAMPLE_SIZE = 10
 
 
+def _escape_sql_string(value: str) -> str:
+    """Escape a string value for safe use in SQL queries.
+
+    Replaces single quotes with doubled single quotes (SQL standard escaping).
+    """
+    return value.replace("'", "''")
+
+
 class Column:
     """
     Represents a column in a dataset with validation capabilities.
@@ -246,11 +254,12 @@ class Column:
         col = f'"{self._name}"'
 
         # DuckDB uses regexp_matches for regex
+        safe_pattern = _escape_sql_string(pattern)
         sql = f"""
         SELECT COUNT(*) as non_matching
         FROM {ref}
         WHERE {col} IS NOT NULL
-          AND NOT regexp_matches({col}::VARCHAR, '{pattern}')
+          AND NOT regexp_matches({col}::VARCHAR, '{safe_pattern}')
         """
 
         non_matching = self._dataset.engine.fetch_value(sql) or 0
@@ -275,12 +284,13 @@ class Column:
         """Get sample of rows that failed pattern match."""
         ref = self._dataset.engine.get_source_reference(self._dataset.source)
         col = f'"{self._name}"'
+        safe_pattern = _escape_sql_string(pattern)
 
         sql = f"""
         SELECT row_number() OVER () as row_idx, {col} as val
         FROM {ref}
         WHERE {col} IS NOT NULL
-          AND NOT regexp_matches({col}::VARCHAR, '{pattern}')
+          AND NOT regexp_matches({col}::VARCHAR, '{safe_pattern}')
         LIMIT {limit}
         """
 
@@ -310,9 +320,9 @@ class Column:
         ref = self._dataset.engine.get_source_reference(self._dataset.source)
         col = f'"{self._name}"'
 
-        # Build value list for SQL
+        # Build value list for SQL (with proper escaping)
         formatted_values = ", ".join(
-            f"'{v}'" if isinstance(v, str) else str(v) for v in values
+            f"'{_escape_sql_string(str(v))}'" if isinstance(v, str) else str(v) for v in values
         )
 
         sql = f"""
@@ -346,7 +356,7 @@ class Column:
         col = f'"{self._name}"'
 
         formatted_values = ", ".join(
-            f"'{v}'" if isinstance(v, str) else str(v) for v in values
+            f"'{_escape_sql_string(str(v))}'" if isinstance(v, str) else str(v) for v in values
         )
 
         sql = f"""
