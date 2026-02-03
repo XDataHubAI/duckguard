@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from duckguard.ai.config import _get_client
 from duckguard.core.result import ValidationResult
@@ -10,8 +10,8 @@ from duckguard.core.result import ValidationResult
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset
 
-SYSTEM_PROMPT = """You are a data quality expert. Convert natural language rules into 
-DuckGuard Python code. 
+SYSTEM_PROMPT = """You are a data quality expert. Convert natural language rules into
+DuckGuard Python code.
 
 Available DuckGuard methods:
 - dataset.column_name.is_not_null()
@@ -29,13 +29,13 @@ Available DuckGuard methods:
 
 Dataset columns: {columns}
 
-For each natural language rule, output ONLY a Python expression that calls the appropriate 
+For each natural language rule, output ONLY a Python expression that calls the appropriate
 DuckGuard method. One expression per line. No explanations, no imports.
 
 Example input: "order IDs should never be null"
 Example output: dataset.order_id.is_not_null()
 
-Example input: "quantities between 1 and 1000"  
+Example input: "quantities between 1 and 1000"
 Example output: dataset.quantity.between(1, 1000)"""
 
 

@@ -1,8 +1,10 @@
 # Today's Tasks (Feb 3, 2026)
 
-## Waiting on: `sudo apt-get install -y git python3-pip python3.12-venv`
+## For OC (when back):
+- [ ] Enable GitHub Pages: go to github.com/xdatahubai-a11y/duckguard-ai → Settings → Pages → Source: Deploy from branch → Branch: `gh-pages` / `/ (root)` → Save
+- [ ] Docs will be live at: https://xdatahubai-a11y.github.io/duckguard-ai/
 
-## Once unblocked:
+## Completed:
 
 ### 1. Dev Environment (10 min)
 - [ ] Create venv: `python3 -m venv .venv && source .venv/bin/activate`

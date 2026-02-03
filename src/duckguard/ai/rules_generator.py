@@ -9,7 +9,7 @@ from duckguard.ai.config import _get_client
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset
 
-SYSTEM_PROMPT = """You are a data quality expert. Generate DuckGuard YAML validation rules 
+SYSTEM_PROMPT = """You are a data quality expert. Generate DuckGuard YAML validation rules
 based on dataset profiles. Rules should be practical, not overly strict.
 
 Output format — valid YAML only, no markdown fences:

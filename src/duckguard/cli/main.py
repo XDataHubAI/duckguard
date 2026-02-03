@@ -1504,8 +1504,8 @@ def explain(
     Requires: pip install duckguard[llm]
     """
     try:
-        from duckguard.connectors import connect as dg_connect
         from duckguard.ai import explain as ai_explain
+        from duckguard.connectors import connect as dg_connect
 
         with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
             dataset = dg_connect(source, table=table)
@@ -1537,8 +1537,8 @@ def suggest(
     Requires: pip install duckguard[llm]
     """
     try:
-        from duckguard.connectors import connect as dg_connect
         from duckguard.ai import suggest_rules
+        from duckguard.connectors import connect as dg_connect
 
         with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
             dataset = dg_connect(source, table=table)
@@ -1573,8 +1573,8 @@ def fix(
     Requires: pip install duckguard[llm]
     """
     try:
-        from duckguard.connectors import connect as dg_connect
         from duckguard.ai import suggest_fixes
+        from duckguard.connectors import connect as dg_connect
 
         with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console):
             dataset = dg_connect(source, table=table)
