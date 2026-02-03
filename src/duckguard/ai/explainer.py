@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from duckguard.ai.config import _get_client, get_config
+from duckguard.ai.config import _get_client
 
 if TYPE_CHECKING:
     from duckguard.core.dataset import Dataset
 
-SYSTEM_PROMPT = """You are a data quality expert. You analyze dataset profiles and explain 
-data quality issues in clear, actionable language. Be specific about which columns and 
+SYSTEM_PROMPT = """You are a data quality expert. You analyze dataset profiles and explain
+data quality issues in clear, actionable language. Be specific about which columns and
 values are problematic. Suggest concrete validation rules using DuckGuard's API.
 
 DuckGuard API methods:

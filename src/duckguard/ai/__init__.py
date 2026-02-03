@@ -19,9 +19,9 @@ Example:
 
 from duckguard.ai.config import configure, get_config
 from duckguard.ai.explainer import explain
-from duckguard.ai.rules_generator import suggest_rules
 from duckguard.ai.fixer import suggest_fixes
 from duckguard.ai.natural_language import natural_rules
+from duckguard.ai.rules_generator import suggest_rules
 
 __all__ = [
     "configure",
