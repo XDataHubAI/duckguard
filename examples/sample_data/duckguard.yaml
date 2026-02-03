@@ -1,0 +1,16 @@
+name: orders_validation
+description: Quality checks for the orders dataset
+
+checks:
+  order_id:
+    - not_null
+    - unique
+
+  customer_id:
+    - not_null
+
+  quantity:
+    - between: [1, 1000]
+
+  status:
+    - allowed_values: [pending, shipped, delivered, cancelled, returned]

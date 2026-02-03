@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuckGuard — Orders Quality Report</title>
+    <style>
+        :root {
+            --color-pass: #10b981;
+            --color-fail: #ef4444;
+            --color-warn: #f59e0b;
+            --color-info: #6b7280;
+            --color-bg: #f9fafb;
+            --color-card: #ffffff;
+            --color-border: #e5e7eb;
+            --color-text: #111827;
+            --color-text-secondary: #6b7280;
+        }
+        [data-theme="dark"] {
+            --color-pass: #34d399;
+            --color-fail: #f87171;
+            --color-warn: #fbbf24;
+            --color-info: #9ca3af;
+            --color-bg: #111827;
+            --color-card: #1f2937;
+            --color-border: #374151;
+            --color-text: #f9fafb;
+            --color-text-secondary: #9ca3af;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --color-pass: #34d399;
+                --color-fail: #f87171;
+                --color-warn: #fbbf24;
+                --color-info: #9ca3af;
+                --color-bg: #111827;
+                --color-card: #1f2937;
+                --color-border: #374151;
+                --color-text: #f9fafb;
+                --color-text-secondary: #9ca3af;
+            }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.5;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--color-border);
+        }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header-logo { max-height: 48px; max-width: 200px; object-fit: contain; }
+        .header h1 { font-size: 1.75rem; font-weight: 600; }
+        .header .meta { color: var(--color-text-secondary); font-size: 0.875rem; }
+        .header-right { display: flex; align-items: center; gap: 0.75rem; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .status-pass { background: #d1fae5; color: #065f46; }
+        .status-fail { background: #fee2e2; color: #991b1b; }
+        [data-theme="dark"] .status-pass { background: #064e3b; color: #34d399; }
+        [data-theme="dark"] .status-fail { background: #7f1d1d; color: #f87171; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .status-pass { background: #064e3b; color: #34d399; }
+            :root:not([data-theme="light"]) .status-fail { background: #7f1d1d; color: #f87171; }
+        }
+        .theme-toggle {
+            background: none; border: 1px solid var(--color-border);
+            border-radius: 0.375rem; padding: 0.5rem;
+            cursor: pointer; color: var(--color-text-secondary);
+            display: flex; align-items: center;
+        }
+        .theme-toggle:hover { background: var(--color-bg); }
+        .icon-moon { display: none; }
+        [data-theme="dark"] .icon-sun { display: none; }
+        [data-theme="dark"] .icon-moon { display: block; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .icon-sun { display: none; }
+            :root:not([data-theme="light"]) .icon-moon { display: block; }
+        }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .card {
+            background: var(--color-card);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card-label { font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-secondary); letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        .card-value { font-size: 2rem; font-weight: 700; }
+        .card-value.pass { color: var(--color-pass); }
+        .card-value.fail { color: var(--color-fail); }
+        .card-value.warn { color: var(--color-warn); }
+        .section { background: var(--color-card); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        details.section > summary { cursor: pointer; user-select: none; list-style: none; }
+        details.section > summary::-webkit-details-marker { display: none; }
+        .section-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .section-title .icon { width: 1.25rem; height: 1.25rem; }
+        .collapse-hint { font-size: 0.75rem; color: var(--color-text-secondary); margin-left: auto; }
+        details.section[open] .collapse-hint::after { content: '[-]'; }
+        details.section:not([open]) .collapse-hint::after { content: '[+]'; }
+        details.section:not([open]) .section-title { margin-bottom: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+        th { font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg); cursor: pointer; user-select: none; }
+        th:hover { color: var(--color-text); }
+        th.sort-asc::after { content: ' \25B2'; font-size: 0.65rem; }
+        th.sort-desc::after { content: ' \25BC'; font-size: 0.65rem; }
+        tr:hover { background: var(--color-bg); }
+        .status-icon { display: inline-flex; align-items: center; gap: 0.25rem; }
+        .status-icon.pass { color: var(--color-pass); }
+        .status-icon.fail { color: var(--color-fail); }
+        .status-icon.warn { color: var(--color-warn); }
+        .gauge-container { display: flex; justify-content: center; margin: 1rem 0; }
+        .gauge { width: 200px; height: 100px; position: relative; }
+        .gauge svg { width: 100%; height: 100%; }
+        .gauge-value { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: 2rem; font-weight: 700; }
+        .grade { font-size: 1rem; color: var(--color-text-secondary); }
+        .failed-rows { margin-top: 0.5rem; padding: 0.75rem; background: #fef2f2; border-radius: 0.375rem; font-size: 0.8rem; }
+        .failed-rows-title { font-weight: 600; color: #991b1b; margin-bottom: 0.25rem; }
+        .failed-rows code { background: #fee2e2; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-family: monospace; }
+        [data-theme="dark"] .failed-rows { background: #1c1917; }
+        [data-theme="dark"] .failed-rows-title { color: #f87171; }
+        [data-theme="dark"] .failed-rows code { background: #292524; color: #fca5a5; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .failed-rows { background: #1c1917; }
+            :root:not([data-theme="light"]) .failed-rows-title { color: #f87171; }
+            :root:not([data-theme="light"]) .failed-rows code { background: #292524; color: #fca5a5; }
+        }
+        .search-bar { margin-bottom: 0.75rem; }
+        .search-input {
+            width: 100%; padding: 0.5rem 0.75rem;
+            border: 1px solid var(--color-border); border-radius: 0.375rem;
+            background: var(--color-bg); color: var(--color-text);
+            font-size: 0.875rem; font-family: inherit;
+        }
+        .search-input:focus { outline: 2px solid var(--color-pass); outline-offset: -1px; }
+        .search-input::placeholder { color: var(--color-text-secondary); }
+        .trend-chart { width: 100%; overflow-x: auto; }
+        .trend-chart svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+        .footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-border); text-align: center; color: var(--color-text-secondary); font-size: 0.75rem; }
+        .footer a { color: inherit; text-decoration: none; }
+        @media print {
+            body { padding: 0; }
+            :root, [data-theme="dark"] {
+                --color-pass: #10b981; --color-fail: #ef4444; --color-warn: #f59e0b;
+                --color-info: #6b7280; --color-bg: #f9fafb; --color-card: #ffffff;
+                --color-border: #e5e7eb; --color-text: #111827; --color-text-secondary: #6b7280;
+            }
+            .status-pass { background: #d1fae5 !important; color: #065f46 !important; }
+            .status-fail { background: #fee2e2 !important; color: #991b1b !important; }
+            .failed-rows { background: #fef2f2 !important; }
+            .failed-rows-title { color: #991b1b !important; }
+            .failed-rows code { background: #fee2e2 !important; color: inherit !important; }
+            .section { break-inside: avoid; }
+            details.section { display: block; }
+            details.section > summary { pointer-events: none; }
+            .collapse-hint { display: none; }
+            .theme-toggle { display: none; }
+            .search-bar { display: none; }
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                
+                <div>
+                    <h1>DuckGuard — Orders Quality Report</h1>
+                    <div class="meta">
+                        Source: <strong>c:\SourceCode\SophonDataHub\duckguard\examples\sample_data\orders.csv</strong> |
+                        Generated: 2026-01-30 22:35:04
+                        
+                        <br>
+                        Rows: <strong>30</strong>
+                         | 
+                        Columns: <strong>15</strong>
+                         | 
+                        Duration: <strong>355ms</strong>
+                        
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">
+                    <svg class="icon-sun" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg class="icon-moon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+                <div class="status-badge status-fail">
+                    &#10007; FAILED
+                </div>
+            </div>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <div class="card-label">Quality Score</div>
+                <div class="card-value warn">
+                    64.7%
+                </div>
+                <div class="grade">Grade: D</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Checks Passed</div>
+                <div class="card-value pass">11</div>
+                <div class="grade">of 17 total</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Failures</div>
+                <div class="card-value fail">4</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Warnings</div>
+                <div class="card-value warn">2</div>
+            </div>
+        </div>
+
+        
+        <div class="section">
+            <div class="section-title">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Quality Score
+            </div>
+            <div class="gauge-container">
+                <div class="gauge">
+                    <svg viewBox="0 0 200 100">
+                        <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="#e5e7eb" stroke-width="12" stroke-linecap="round"/>
+                        <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none"
+                              stroke="#f59e0b"
+                              stroke-width="12" stroke-linecap="round"
+                              stroke-dasharray="162.41176470588232 251"/>
+                    </svg>
+                    <div class="gauge-value">65</div>
+                </div>
+            </div>
+        </div>
+        
+
+        
+        <div class="section">
+            <div class="section-title">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                Quality Trend (11 data points)
+            </div>
+            <div class="trend-chart">
+                <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Quality score trend chart">
+<rect x="0" y="0" width="700" height="200" fill="none" rx="8"/>
+<line x1="40" y1="165.0" x2="680" y2="165.0" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4"/>
+<text x="35" y="169.0" text-anchor="end" fill="#9ca3af" font-size="11">0</text>
+<line x1="40" y1="128.8" x2="680" y2="128.8" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4"/>
+<text x="35" y="132.8" text-anchor="end" fill="#9ca3af" font-size="11">25</text>
+<line x1="40" y1="92.5" x2="680" y2="92.5" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4"/>
+<text x="35" y="96.5" text-anchor="end" fill="#9ca3af" font-size="11">50</text>
+<line x1="40" y1="56.2" x2="680" y2="56.2" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4"/>
+<text x="35" y="60.2" text-anchor="end" fill="#9ca3af" font-size="11">75</text>
+<line x1="40" y1="20.0" x2="680" y2="20.0" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4"/>
+<text x="35" y="24.0" text-anchor="end" fill="#9ca3af" font-size="11">100</text>
+<polygon points="40.0,57.7 104.0,53.3 168.0,50.4 232.0,54.8 296.0,46.1 360.0,47.5 424.0,43.2 488.0,38.9 552.0,44.7 616.0,34.5 680.0,37.4 680.0,51.9 616.0,49.0 552.0,56.2 488.0,51.9 424.0,54.8 360.0,62.1 296.0,57.7 232.0,66.4 168.0,63.5 104.0,70.8 40.0,75.1" fill="#10b981" opacity="0.1"/>
+<polyline points="40.0,66.4 104.0,62.1 168.0,57.0 232.0,60.6 296.0,51.9 360.0,54.8 424.0,49.0 488.0,45.4 552.0,50.4 616.0,41.8 680.0,44.2" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="40.0" cy="66.4" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-10: 68.0%</title></circle>
+<circle cx="104.0" cy="62.1" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-12: 71.0%</title></circle>
+<circle cx="168.0" cy="57.0" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-14: 74.5%</title></circle>
+<circle cx="232.0" cy="60.6" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-16: 72.0%</title></circle>
+<circle cx="296.0" cy="51.9" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-18: 78.0%</title></circle>
+<circle cx="360.0" cy="54.8" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-20: 76.0%</title></circle>
+<circle cx="424.0" cy="49.0" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-22: 80.0%</title></circle>
+<circle cx="488.0" cy="45.4" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-24: 82.5%</title></circle>
+<circle cx="552.0" cy="50.4" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-26: 79.0%</title></circle>
+<circle cx="616.0" cy="41.8" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-28: 85.0%</title></circle>
+<circle cx="680.0" cy="44.2" r="4" fill="#10b981" stroke="white" stroke-width="2"><title>2026-01-30: 83.3%</title></circle>
+<text x="40.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 10</text>
+<text x="104.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 12</text>
+<text x="168.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 14</text>
+<text x="232.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 16</text>
+<text x="296.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 18</text>
+<text x="360.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 20</text>
+<text x="424.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 22</text>
+<text x="488.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 24</text>
+<text x="552.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 26</text>
+<text x="616.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 28</text>
+<text x="680.0" y="195" text-anchor="middle" fill="#9ca3af" font-size="11">Jan 30</text>
+</svg>
+            </div>
+        </div>
+        
+
+        
+        <details class="section" open>
+            <summary class="section-title" style="color: var(--color-fail);">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Failures (4)
+                <span class="collapse-hint"></span>
+            </summary>
+            <div class="search-bar">
+                <input type="text" class="search-input" data-table="failures-table" placeholder="Search failures..." aria-label="Filter failure rows">
+            </div>
+            <table id="failures-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Column</th>
+                        <th>Message</th>
+                        <th>Actual</th>
+                        <th>Expected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td><span class="status-icon fail">&#10007;</span> not_null</td>
+                        <td>customer_id</td>
+                        <td>Column &#39;customer_id&#39; has 1 null values</td>
+                        <td><code>1</code></td>
+                        <td><code>0</code></td>
+                    </tr>
+                    
+                    
+                    <tr>
+                        <td><span class="status-icon fail">&#10007;</span> between</td>
+                        <td>quantity</td>
+                        <td>Column &#39;quantity&#39; has 2 values outside [1, 1000]</td>
+                        <td><code>2</code></td>
+                        <td><code>[1, 1000]</code></td>
+                    </tr>
+                    
+                    
+                    <tr>
+                        <td><span class="status-icon fail">&#10007;</span> non_negative</td>
+                        <td>subtotal</td>
+                        <td>Column &#39;subtotal&#39; min is -20.0 (expected &gt;= 0)</td>
+                        <td><code>-20.0</code></td>
+                        <td><code>&gt;= 0</code></td>
+                    </tr>
+                    
+                    
+                    <tr>
+                        <td><span class="status-icon fail">&#10007;</span> positive</td>
+                        <td>total_amount</td>
+                        <td>Column &#39;total_amount&#39; has 1 values &lt;= 0</td>
+                        <td><code>1</code></td>
+                        <td><code>&gt; 0</code></td>
+                    </tr>
+                    
+                    
+                </tbody>
+            </table>
+        </details>
+        
+
+        
+        <details class="section" open>
+            <summary class="section-title" style="color: var(--color-warn);">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Warnings (2)
+                <span class="collapse-hint"></span>
+            </summary>
+            <table id="warnings-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Column</th>
+                        <th>Message</th>
+                        <th>Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td><span class="status-icon warn">&#9888;</span> not_null</td>
+                        <td>email</td>
+                        <td>Column &#39;email&#39; has 2 null values</td>
+                        <td><code>2</code></td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon warn">&#9888;</span> not_null</td>
+                        <td>phone</td>
+                        <td>Column &#39;phone&#39; has 2 null values</td>
+                        <td><code>2</code></td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </details>
+        
+
+        
+        <details class="section">
+            <summary class="section-title" style="color: var(--color-pass);">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Passed Checks (11)
+                <span class="collapse-hint"></span>
+            </summary>
+            <table id="passed-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Column</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> row_count</td>
+                        <td>-</td>
+                        <td>Row count is 30 (expected &gt;= 10)</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> not_null</td>
+                        <td>order_id</td>
+                        <td>Column &#39;order_id&#39; has no null values</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> unique</td>
+                        <td>order_id</td>
+                        <td>Column &#39;order_id&#39; is 100% unique</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> not_null</td>
+                        <td>product_name</td>
+                        <td>Column &#39;product_name&#39; has no null values</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> allowed_values</td>
+                        <td>product_name</td>
+                        <td>Column &#39;product_name&#39; has 0 values not in allowed set</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> positive</td>
+                        <td>unit_price</td>
+                        <td>Column &#39;unit_price&#39; has all positive values</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> not_null</td>
+                        <td>status</td>
+                        <td>Column &#39;status&#39; has no null values</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> allowed_values</td>
+                        <td>status</td>
+                        <td>Column &#39;status&#39; has 0 values not in allowed set</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> not_null</td>
+                        <td>country</td>
+                        <td>Column &#39;country&#39; has no null values</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> allowed_values</td>
+                        <td>country</td>
+                        <td>Column &#39;country&#39; has 0 values not in allowed set</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><span class="status-icon pass">&#10003;</span> not_null</td>
+                        <td>created_at</td>
+                        <td>Column &#39;created_at&#39; has no null values</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </details>
+        
+
+        <div class="footer">
+            Generated by <a href="https://github.com/XDataHubAI/duckguard">DuckGuard</a> |
+            Data quality that just works
+        </div>
+    </div>
+    <script>
+    (function() {
+        'use strict';
+        function toggleTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme');
+            if (current === 'dark') {
+                html.setAttribute('data-theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+            }
+        }
+        window.toggleTheme = toggleTheme;
+
+        function makeSortable(table) {
+            var headers = table.querySelectorAll('th');
+            for (var i = 0; i < headers.length; i++) {
+                (function(index) {
+                    headers[index].addEventListener('click', function() {
+                        sortTable(table, index, this);
+                    });
+                })(i);
+            }
+        }
+
+        function sortTable(table, colIndex, header) {
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            var rows = [];
+            var children = tbody.querySelectorAll('tr');
+            for (var i = 0; i < children.length; i++) { rows.push(children[i]); }
+            var dataRows = [];
+            var detailMap = {};
+            for (var j = 0; j < rows.length; j++) {
+                if (rows[j].querySelector('td[colspan]')) {
+                    if (dataRows.length > 0) {
+                        detailMap[dataRows.length - 1] = rows[j];
+                    }
+                } else {
+                    dataRows.push(rows[j]);
+                }
+            }
+            var ascending = !header.classList.contains('sort-asc');
+            var allHeaders = table.querySelectorAll('th');
+            for (var h = 0; h < allHeaders.length; h++) {
+                allHeaders[h].classList.remove('sort-asc', 'sort-desc');
+            }
+            dataRows.sort(function(a, b) {
+                var aText = a.cells[colIndex] ? a.cells[colIndex].textContent.trim() : '';
+                var bText = b.cells[colIndex] ? b.cells[colIndex].textContent.trim() : '';
+                var aNum = parseFloat(aText);
+                var bNum = parseFloat(bText);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return ascending ? aNum - bNum : bNum - aNum;
+                }
+                return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
+            });
+            header.classList.add(ascending ? 'sort-asc' : 'sort-desc');
+            while (tbody.firstChild) { tbody.removeChild(tbody.firstChild); }
+            for (var k = 0; k < dataRows.length; k++) {
+                tbody.appendChild(dataRows[k]);
+                if (detailMap[k]) { tbody.appendChild(detailMap[k]); }
+            }
+        }
+
+        function setupSearch() {
+            var inputs = document.querySelectorAll('.search-input');
+            for (var i = 0; i < inputs.length; i++) {
+                (function(input) {
+                    var tableId = input.getAttribute('data-table');
+                    var table = document.getElementById(tableId);
+                    if (!table) return;
+                    input.addEventListener('input', function() {
+                        filterTable(table, input.value.toLowerCase());
+                    });
+                })(inputs[i]);
+            }
+        }
+
+        function filterTable(table, query) {
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            var rows = tbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                if (row.querySelector('td[colspan]')) continue;
+                var text = row.textContent.toLowerCase();
+                var visible = !query || text.indexOf(query) >= 0;
+                row.style.display = visible ? '' : 'none';
+                var next = row.nextElementSibling;
+                if (next && next.querySelector('td[colspan]')) {
+                    next.style.display = visible ? '' : 'none';
+                }
+            }
+        }
+
+        var tables = document.querySelectorAll('table');
+        for (var t = 0; t < tables.length; t++) { makeSortable(tables[t]); }
+        setupSearch();
+    })();
+    </script>
+</body>
+</html>

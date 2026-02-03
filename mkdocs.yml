@@ -1,0 +1,115 @@
+site_name: DuckGuard
+site_url: https://duckguard.dev
+site_description: "Data quality that just works. 3 lines of code. 10x faster. 20x less memory."
+repo_url: https://github.com/XDataHubAI/duckguard
+repo_name: XDataHubAI/duckguard
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: amber
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: amber
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/duckguard-logo.svg
+  favicon: assets/favicon.png
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+            show_root_heading: true
+            heading_level: 3
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/XDataHubAI/duckguard
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/duckguard/
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+    - Why DuckGuard: getting-started/why-duckguard.md
+  - Guide:
+    - Column Validation: guide/column-validation.md
+    - Quality Scoring: guide/quality-scoring.md
+    - Cross-Dataset Checks: guide/cross-dataset.md
+    - Conditional Checks: guide/conditional-checks.md
+    - Multi-Column Checks: guide/multi-column-checks.md
+    - Query-Based Checks: guide/query-checks.md
+    - Group-By Validation: guide/group-by.md
+    - Anomaly Detection: guide/anomaly-detection.md
+    - Distribution & Drift: guide/distribution-drift.md
+    - Data Contracts: guide/data-contracts.md
+    - YAML Rules: guide/yaml-rules.md
+    - Profiling: guide/profiling.md
+    - PII Detection: guide/pii-detection.md
+    - Freshness & Schema: guide/freshness-schema.md
+    - Row-Level Errors: guide/row-level-errors.md
+    - AI Features (Preview): guide/ai-features.md
+  - Connectors:
+    - Overview: connectors/overview.md
+    - Files (CSV/Parquet/JSON): connectors/files.md
+    - Cloud Storage: connectors/cloud-storage.md
+    - Databases: connectors/databases.md
+    - Modern Formats: connectors/modern-formats.md
+  - Integrations:
+    - pytest: integrations/pytest.md
+    - dbt: integrations/dbt.md
+    - Airflow: integrations/airflow.md
+    - GitHub Actions: integrations/github-actions.md
+    - Reports: integrations/reports.md
+    - Notifications: integrations/notifications.md
+  - CLI Reference: cli.md
+  - API Reference: api/index.md
+  - Blog:
+    - Why We Built DuckGuard: blog/why-we-built-duckguard.md
+  - Changelog: changelog.md
