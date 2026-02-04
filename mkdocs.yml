@@ -105,6 +105,7 @@ nav:
     - Snowflake: platforms/snowflake.md
     - Databricks: platforms/databricks.md
     - Microsoft Fabric: platforms/fabric.md
+    - Azure Ecosystem: platforms/azure.md
     - Kaggle & Colab: platforms/kaggle.md
   - Integrations:
     - pytest: integrations/pytest.md
