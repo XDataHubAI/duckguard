@@ -99,6 +99,46 @@ Snowflake guide: https://xdatahubai.github.io/duckguard/platforms/snowflake/
 
 ## r/databricks
 
+---
+
+## r/azuredatafactory / r/MicrosoftFabric
+
+### Title
+Open source data quality tool with native Microsoft Fabric + ADF integration
+
+### Body
+Built a Python library for data validation that integrates with the Azure data stack:
+
+```python
+from duckguard import connect
+
+# Fabric Lakehouse
+data = connect("fabric://workspace/lakehouse/Tables/orders", token=token)
+
+# Or via SQL endpoint
+data = connect("fabric+sql://host.datawarehouse.fabric.microsoft.com",
+               table="orders", token=token)
+
+# Same 3-line validation everywhere
+assert data.customer_id.is_not_null()
+assert data.total_amount.between(0, 10000)
+```
+
+Also integrates with:
+- ADF pipelines (Notebook, Function, or Custom Activity)
+- Microsoft Purview (push quality metadata)
+- Azure Monitor (custom metrics + alerting)
+- Power BI (Python visual scorecards)
+- Azure DevOps (pipeline YAML)
+- ADLS Gen2 / Blob Storage (direct Parquet read)
+
+`pip install duckguard[fabric]`
+
+GitHub: https://github.com/XDataHubAI/duckguard
+Azure guide: https://xdatahubai.github.io/duckguard/platforms/azure/
+
+---
+
 ### Title
 Data quality for Unity Catalog without Spark overhead — open source tool
 

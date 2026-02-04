@@ -45,8 +45,9 @@
 **Step 2 — Reddit** (OC posts, stagger by 30 min)
 1. r/dataengineering — copy from `launch/reddit-post.md` (biggest audience)
 2. r/Python — copy from same file (30 min later)
-3. r/snowflake — copy from same file (if time)
-4. r/databricks — copy from same file (if time)
+3. r/azuredatafactory or r/MicrosoftFabric — Azure-specific post
+4. r/snowflake — Snowflake-specific post
+5. r/databricks — Databricks-specific post
 
 ### Midday: 9-12 PM PST
 

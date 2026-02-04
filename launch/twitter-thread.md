@@ -3,9 +3,9 @@
 ## Tweet 1 (Hook)
 Every data quality tool makes you write 50+ lines of boilerplate before you can validate a single column.
 
-So I built one where it takes 3 lines.
+So I built one where it takes 3 lines. Works on any source — S3, Snowflake, Databricks, Fabric, or CSV.
 
-Meet DuckGuard. 🦆🛡️
+Meet DuckGuard 🦆🛡️
 
 🧵👇
 
@@ -20,7 +20,7 @@ Here's what it takes to check if a column has nulls in Great Expectations:
 - Get a validator
 - Finally: validate
 
-That's insane.
+That's insane for a null check.
 
 ## Tweet 3 (The Solution)
 Here's DuckGuard:
@@ -28,47 +28,64 @@ Here's DuckGuard:
 ```python
 from duckguard import connect
 
-orders = connect("orders.csv")
+orders = connect("s3://warehouse/orders.parquet")
 assert orders.customer_id.is_not_null()
 ```
 
-Done. It reads like English. Runs like DuckDB.
+Same 3 lines whether your data is in S3, Snowflake, Databricks, Fabric, BigQuery, or a local CSV.
 
-## Tweet 4 (Speed)
-Because it's built on @daboratoryorg's DuckDB, not pandas:
+## Tweet 4 (Connectors)
+16+ connectors out of the box:
 
-📊 1GB CSV
-- Great Expectations: 45 sec, 4GB RAM
-- DuckGuard: 4 sec, 200MB RAM
+☁️ S3, GCS, Azure Blob
+🏔️ Snowflake, Databricks, BigQuery, Redshift
+🟦 Microsoft Fabric (OneLake + SQL)
+🗄️ Postgres, MySQL, SQL Server, Oracle
+📄 Parquet, CSV, JSON, Delta Lake, Iceberg
+🐼 pandas DataFrames
 
-That's 10x faster, 20x less memory.
+One API. Any source.
 
 ## Tweet 5 (Features)
-What's included (no extra setup):
+What's built-in (no extra setup):
 
 ✅ Quality scoring (A-F grades)
 ✅ Row-level error details
-✅ PII detection
+✅ PII auto-detection
 ✅ 7 anomaly detection methods
-✅ Data contracts
-✅ Drift detection
-✅ Cross-dataset validation
+✅ AI-powered explain/suggest/fix
+✅ Data contracts + schema tracking
+✅ Drift detection + reconciliation
 ✅ YAML rules + auto-discovery
 
-## Tweet 6 (Integrations)
+## Tweet 6 (Azure story)
+Full Azure ecosystem integration:
+
+🔷 ADF pipeline quality gates
+🔷 Purview metadata push
+🔷 Azure Monitor alerting
+🔷 Power BI quality dashboards
+🔷 DevOps pipeline tasks
+🔷 Fabric notebooks
+
+One quality layer across your entire Azure data stack.
+
+## Tweet 7 (Integrations)
 Works with your existing stack:
 
-🧪 pytest (validations ARE pytest assertions)
+🧪 pytest (validations ARE assertions)
 🔧 dbt
 🌊 Airflow
 🤖 GitHub Actions
-📱 Slack/Teams alerts
+📱 Slack / Teams / Email
 
-## Tweet 7 (CTA)
-Open source. Built for data engineers who are tired of ceremony.
+## Tweet 8 (CTA)
+Open source. Apache 2.0. Built for data engineers who are tired of ceremony.
 
-⭐ GitHub: github.com/XDataHubAI/duckguard
-📦 Install: pip install duckguard
-📖 Docs: xdatahubai.github.io/duckguard
+⭐ github.com/XDataHubAI/duckguard
+📦 pip install duckguard
+📖 xdatahubai.github.io/duckguard
 
-Star it if you've ever been frustrated by Great Expectations. I know you have.
+Star it if you've ever been frustrated by data quality tooling. I know you have.
+
+#DataEngineering #DataQuality #Python #DuckDB #OpenSource
