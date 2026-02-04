@@ -16,6 +16,7 @@
 
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/XDataHubAI/duckguard/blob/main/examples/getting_started.ipynb)
   [![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://github.com/XDataHubAI/duckguard/blob/main/examples/kaggle_data_quality.ipynb)
+  [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://duckguard.streamlit.app)
 </div>
 
 ---
@@ -67,6 +68,11 @@ orders = connect("mysql://localhost/db", table="orders")     # MySQL
 # Files & DataFrames
 orders = connect("orders.parquet")                           # Parquet, CSV, JSON, Excel
 orders = connect(pandas_dataframe)                           # pandas DataFrame
+
+# Hugging Face Datasets
+from datasets import load_dataset
+df = load_dataset("my_dataset", split="train").to_pandas()
+orders = connect(df)                                         # HF → DuckGuard
 ```
 
 > **15+ connectors.** Install what you need: `pip install duckguard[snowflake]`, `duckguard[databricks]`, or `duckguard[all]`
