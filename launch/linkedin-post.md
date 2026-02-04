@@ -13,7 +13,7 @@ from duckguard import connect
 
 orders = connect("orders.csv")
 assert orders.customer_id.is_not_null()
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 ```
 
 3 lines. No boilerplate. No ceremony.

@@ -69,7 +69,7 @@ def test_orders_completeness(orders):
     assert orders.customer_id.null_percent == 0
 
 def test_orders_values(orders):
-    assert orders.amount.between(0, 100000)
+    assert orders.total_amount.between(0, 100000)
     assert orders.status.isin(["pending", "shipped", "delivered"])
 
 def test_customer_uniqueness(customers):

@@ -15,7 +15,7 @@
 - **DX**: 3 lines vs 50+ lines to start
 - **Speed**: 10x faster (DuckDB vs pandas)
 - **Memory**: 20x less (200MB vs 4GB for 1GB CSV)
-- **API**: `orders.amount.between(0, 10000)` vs `expect_column_values_to_be_between(column="amount", min_value=0, max_value=10000)`
+- **API**: `orders.total_amount.between(0, 10000)` vs `expect_column_values_to_be_between(column="amount", min_value=0, max_value=10000)`
 - **Batteries**: PII detection, anomaly detection, drift, reconciliation built in (GE has none)
 - **Learning curve**: Minutes vs days
 

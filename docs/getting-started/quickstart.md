@@ -35,7 +35,7 @@ assert orders.order_id.is_not_null()
 assert orders.order_id.is_unique()
 
 # Range checks
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 assert orders.quantity.greater_than(0)
 
 # Patterns & enums

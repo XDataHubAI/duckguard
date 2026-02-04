@@ -115,8 +115,8 @@ def test_orders():
     assert orders.order_id.has_no_duplicates()
 
     # amount validations
-    assert orders.amount.between(0, 11000)
-    assert orders.amount.min >= 0
+    assert orders.total_amount.between(0, 11000)
+    assert orders.total_amount.min >= 0
 ```
 
 ## Configurable Thresholds

@@ -24,7 +24,7 @@ assert orders.order_id.has_no_duplicates()
 Access statistics directly on any column:
 
 ```python
-col = orders.amount
+col = orders.total_amount
 
 col.null_count       # Number of null values
 col.null_percent     # Percentage of nulls
@@ -40,11 +40,11 @@ col.stddev           # Standard deviation
 
 ```python
 # Inclusive range
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 
 # Exclusive bounds
-assert orders.amount.greater_than(0)
-assert orders.amount.less_than(100000)
+assert orders.total_amount.greater_than(0)
+assert orders.total_amount.less_than(100000)
 ```
 
 ## Pattern Matching

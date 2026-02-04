@@ -54,7 +54,7 @@ print(score.is_anomaly)  # True
 print(score.score)       # deviation score
 
 # Score an entire column
-scores = baseline.score(orders.amount)
+scores = baseline.score(orders.total_amount)
 ```
 
 ## KS Test (Distribution Drift)

@@ -15,7 +15,7 @@ from duckguard import connect
 
 orders = connect("orders.csv")  # Also: Parquet, S3, Postgres, Snowflake, BigQuery...
 assert orders.customer_id.is_not_null()
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 assert orders.status.isin(["pending", "shipped", "delivered"])
 ```
 
@@ -55,7 +55,7 @@ from duckguard import connect
 
 orders = connect("orders.csv")
 assert orders.customer_id.is_not_null()
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 ```
 
 Instead of `expect_column_values_to_not_be_null("customer_id")`, you write `orders.customer_id.is_not_null()`.

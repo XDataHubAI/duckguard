@@ -31,7 +31,7 @@ from duckguard import connect
 
 orders = connect("orders.csv")                               # CSV, Parquet, JSON, S3, databases...
 assert orders.customer_id.is_not_null()                      # Just like pytest!
-assert orders.amount.between(0, 10000)                       # Readable validations
+assert orders.total_amount.between(0, 10000)                   # Readable validations
 assert orders.status.isin(["pending", "shipped", "delivered"])
 
 quality = orders.score()
@@ -96,7 +96,7 @@ from duckguard import connect
 orders = connect("orders.csv")
 
 assert orders.customer_id.is_not_null()
-assert orders.amount.between(0, 10000)
+assert orders.total_amount.between(0, 10000)
 ```
 
 <br><br><br><br><br><br><br><br><br><br><br><br>
@@ -296,9 +296,9 @@ orders.order_id.is_unique()            # All values distinct
 orders.order_id.has_no_duplicates()    # Alias for is_unique
 
 # Range & comparison
-orders.amount.between(0, 10000)        # Inclusive range
-orders.amount.greater_than(0)          # Minimum (exclusive)
-orders.amount.less_than(100000)        # Maximum (exclusive)
+orders.total_amount.between(0, 10000)        # Inclusive range
+orders.total_amount.greater_than(0)          # Minimum (exclusive)
+orders.total_amount.less_than(100000)        # Maximum (exclusive)
 
 # Pattern & enum
 orders.email.matches(r'^[\w.+-]+@[\w-]+\.[\w.]+$')
@@ -536,7 +536,7 @@ Statistical tests for distribution shape (requires `scipy`):
 
 ```python
 # Test for normal distribution
-orders.amount.expect_distribution_normal(significance_level=0.05)
+orders.total_amount.expect_distribution_normal(significance_level=0.05)
 
 # Kolmogorov-Smirnov test
 orders.quantity.expect_ks_test(distribution="norm")
@@ -569,7 +569,7 @@ print(baseline.baseline_mean, baseline.baseline_std)
 score = baseline.score(250)  # Single value
 print(score.is_anomaly, score.score)
 
-scores = baseline.score(orders.amount)  # Entire column
+scores = baseline.score(orders.total_amount)  # Entire column
 print(max(scores))
 
 # KS-Test: detect distribution drift

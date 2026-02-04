@@ -28,12 +28,12 @@ print(repr(ds.customer_id.is_not_null()))
 "
 sleep 1.5
 
-echo ">>> orders.amount.between(0, 10000)"
+echo ">>> orders.total_amount.between(0, 10000)"
 sleep 0.5
 python -c "
 from duckguard import connect
 ds = connect('examples/sample_data/orders.csv')
-print(repr(ds.amount.between(0, 10000)))
+print(repr(ds.total_amount.between(0, 10000)))
 "
 sleep 1.5
 
