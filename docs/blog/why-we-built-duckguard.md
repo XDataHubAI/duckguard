@@ -87,4 +87,4 @@ pip install duckguard
 
 ---
 
-*DuckGuard is open-source under the Elastic License 2.0. Built by the [XDataHubAI](https://github.com/XDataHubAI) team.*
+*DuckGuard is open-source under the Apache License 2.0. Built by the [XDataHubAI](https://github.com/XDataHubAI) team.*

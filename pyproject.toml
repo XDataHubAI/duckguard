@@ -7,7 +7,7 @@ name = "duckguard"
 version = "3.1.0"
 description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
 readme = "README.md"
-license = "Elastic-2.0"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
     { name = "DuckGuard Team" }

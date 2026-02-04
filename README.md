@@ -10,7 +10,7 @@
   [![Downloads](https://static.pepy.tech/badge/duckguard)](https://pepy.tech/project/duckguard)
   [![GitHub stars](https://img.shields.io/github/stars/XDataHubAI/duckguard?style=social)](https://github.com/XDataHubAI/duckguard/stargazers)
   [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-  [![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](https://www.elastic.co/licensing/elastic-license)
+  [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
   [![CI](https://github.com/XDataHubAI/duckguard/actions/workflows/ci.yml/badge.svg)](https://github.com/XDataHubAI/duckguard/actions/workflows/ci.yml)
   [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://xdatahubai.github.io/duckguard/)
 
@@ -1036,7 +1036,7 @@ ruff check src tests      # Lint
 
 ## License
 
-Elastic License 2.0 - see [LICENSE](LICENSE)
+Apache License 2.0 - see [LICENSE](LICENSE)
 
 ---
 

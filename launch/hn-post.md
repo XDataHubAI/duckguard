@@ -40,7 +40,7 @@ v3.1 is current. Python 3.10+, no pandas dependency.
 
 Docs: https://xdatahubai.github.io/duckguard/
 
-Open source under Elastic License 2.0 (same as Elasticsearch). Would love feedback from anyone doing data quality at scale.
+Open source under Apache License 2.0. Would love feedback from anyone doing data quality at scale.
 
 ## Notes
 - Post between 8-10 AM ET on a weekday (best HN times)

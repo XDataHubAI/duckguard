@@ -42,7 +42,7 @@ Pandera's weakness: tied to DataFrame libraries. Can't validate files, databases
 
 1. **No community yet** — 0 real users, 0 blog mentions, 0 Stack Overflow answers
 2. **No proof at scale** — benchmarks are from our own tests, not independent validation
-3. **Elastic License** — not OSI-approved open source. Some orgs won't touch it.
+3. ~~**Elastic License** — resolved: switched to Apache 2.0~~
 4. **Single maintainer** — bus factor = 1
 5. **No hosted/managed offering** — competitors have SaaS (GE Cloud, Soda Cloud)
 6. **No documentation site** — just a README (FIXING THIS NOW)
