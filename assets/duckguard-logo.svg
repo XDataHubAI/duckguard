@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+    <linearGradient id="duckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield -->
+  <path d="M50 10 L85 25 L85 55 Q85 80 50 95 Q15 80 15 55 L15 25 Z"
+        fill="url(#shieldGrad)" stroke="#047857" stroke-width="2"/>
+
+  <!-- Duck silhouette on shield -->
+  <g transform="translate(28, 28) scale(0.45)">
+    <!-- Duck body -->
+    <ellipse cx="50" cy="70" rx="35" ry="25" fill="url(#duckGrad)"/>
+    <!-- Duck head -->
+    <circle cx="75" cy="45" r="20" fill="url(#duckGrad)"/>
+    <!-- Duck beak -->
+    <path d="M90 45 L110 42 L110 52 L90 48 Z" fill="#f97316"/>
+    <!-- Duck eye -->
+    <circle cx="80" cy="42" r="4" fill="#1f2937"/>
+    <!-- Duck wing -->
+    <ellipse cx="45" cy="65" rx="18" ry="12" fill="#d97706"/>
+  </g>
+
+  <!-- Checkmark on shield -->
+  <path d="M35 55 L45 65 L65 40" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Text -->
+  <text x="110" y="62" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="42" font-weight="700" fill="#111827">
+    Duck<tspan fill="#10b981">Guard</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="112" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#6b7280">
+    Data Quality That Just Works
+  </text>
+</svg>
