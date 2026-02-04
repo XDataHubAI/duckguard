@@ -35,7 +35,7 @@ assert orders.customer_id.is_not_null()
 Done. It reads like English. Runs like DuckDB.
 
 ## Tweet 4 (Speed)
-Because it's built on @daboratory's DuckDB, not pandas:
+Because it's built on @daboratoryorg's DuckDB, not pandas:
 
 📊 1GB CSV
 - Great Expectations: 45 sec, 4GB RAM
@@ -69,6 +69,6 @@ Open source. Built for data engineers who are tired of ceremony.
 
 ⭐ GitHub: github.com/XDataHubAI/duckguard
 📦 Install: pip install duckguard
-📖 Docs: (link)
+📖 Docs: xdatahubai-a11y.github.io/duckguard-ai
 
 Star it if you've ever been frustrated by Great Expectations. I know you have.

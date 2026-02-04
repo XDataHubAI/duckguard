@@ -17,15 +17,30 @@ from duckguard import connect
 orders = connect("orders.csv")
 assert orders.customer_id.is_not_null()
 assert orders.amount.between(0, 10000)
+assert orders.status.isin(["pending", "shipped", "delivered"])
+
+quality = orders.score()
+print(f"Grade: {quality.grade}")  # A, B, C, D, or F
 ```
 
 It runs on DuckDB, so it's 10x faster and uses 20x less memory than pandas-based alternatives. A 1GB CSV validates in ~4 seconds using ~200MB RAM.
 
-Features: quality scoring (A-F grades), PII detection, 7 anomaly detection methods, data contracts, drift detection, reconciliation, YAML rules, and integrations with pytest/dbt/Airflow.
+What's included out of the box:
+- Quality scoring (A-F grades across 4 dimensions)
+- Row-level error details (shows which rows failed, not just percentages)
+- PII detection (auto-detect emails, SSNs, credit cards)
+- 7 anomaly detection methods (z-score, IQR, ML baselines, seasonal)
+- Data contracts and schema evolution tracking
+- Drift detection and cross-dataset reconciliation
+- Conditional checks, multi-column validation, distributional tests
+- YAML rules + auto-discovery
+- Integrations: pytest, dbt, Airflow, GitHub Actions, Slack/Teams
 
-v3.0 just shipped with conditional checks, multi-column validation, query-based expectations, and distributional tests — all with multi-layer SQL injection prevention.
+v3.1 is current. Python 3.10+, no pandas dependency.
 
-Open source under Elastic License 2.0. Would love feedback from anyone doing data quality at scale.
+Docs: https://xdatahubai-a11y.github.io/duckguard-ai/
+
+Open source under Elastic License 2.0 (same as Elasticsearch). Would love feedback from anyone doing data quality at scale.
 
 ## Notes
 - Post between 8-10 AM ET on a weekday (best HN times)
