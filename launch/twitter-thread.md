@@ -69,6 +69,6 @@ Open source. Built for data engineers who are tired of ceremony.
 
 ⭐ GitHub: github.com/XDataHubAI/duckguard
 📦 Install: pip install duckguard
-📖 Docs: xdatahubai-a11y.github.io/duckguard-ai
+📖 Docs: xdatahubai.github.io/duckguard
 
 Star it if you've ever been frustrated by Great Expectations. I know you have.

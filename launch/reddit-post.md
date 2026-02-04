@@ -35,7 +35,7 @@ What's included:
 - Integrations: pytest, dbt, Airflow, GitHub Actions, Slack/Teams
 
 GitHub: https://github.com/XDataHubAI/duckguard
-Docs: https://xdatahubai-a11y.github.io/duckguard-ai/
+Docs: https://xdatahubai.github.io/duckguard/
 PyPI: `pip install duckguard`
 
 Curious what people think. What would make you switch from your current data quality setup?
