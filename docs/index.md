@@ -7,9 +7,9 @@ hide:
 
 ## Data Quality That Just Works
 
-**3 lines of code** · **10x faster** · **20x less memory**
+**3 lines of code** · **Any data source** · **10x faster**
 
-Stop wrestling with 50+ lines of boilerplate. Start validating data in seconds.
+One API for CSV, Parquet, Snowflake, Databricks, BigQuery, and 15+ sources. No boilerplate.
 
 ```bash
 pip install duckguard
@@ -18,8 +18,8 @@ pip install duckguard
 ```python
 from duckguard import connect
 
-orders = connect("orders.csv")
-assert orders.customer_id.is_not_null()
+orders = connect("s3://warehouse/orders.parquet")       # or Snowflake, Databricks, CSV...
+assert orders.customer_id.is_not_null()                 # Just like pytest!
 assert orders.total_amount.between(0, 10000)
 assert orders.status.isin(["pending", "shipped", "delivered"])
 
@@ -27,7 +27,7 @@ quality = orders.score()
 print(f"Grade: {quality.grade}")  # A, B, C, D, or F
 ```
 
-That's it. No context. No datasource. No validator. No expectation suite. Just data quality.
+Same 3 lines whether your data lives in S3, Snowflake, Databricks, or a local CSV.
 
 ---
 
@@ -64,6 +64,10 @@ Every data quality tool asks you to write **50+ lines of boilerplate** before yo
 - :material-database: **[Connectors](connectors/overview.md)**
 
     CSV, Parquet, S3, PostgreSQL, Snowflake, BigQuery, and more
+
+- :material-snowflake: **[Snowflake](platforms/snowflake.md)** · :material-fire: **[Databricks](platforms/databricks.md)** · :material-notebook: **[Kaggle](platforms/kaggle.md)**
+
+    Platform-specific guides for your data stack
 
 - :material-puzzle: **[Integrations](integrations/pytest.md)**
 

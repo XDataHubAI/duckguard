@@ -2,9 +2,9 @@
   <img src="docs/assets/duckguard-logo.svg" alt="DuckGuard" width="420">
 
   <h3>Data Quality That Just Works</h3>
-  <p><strong>3 lines of code</strong> &bull; <strong>10x faster</strong> &bull; <strong>20x less memory</strong></p>
+  <p><strong>3 lines of code</strong> &bull; <strong>Any data source</strong> &bull; <strong>10x faster</strong></p>
 
-  <p><em>Stop wrestling with 50+ lines of boilerplate. Start validating data in seconds.</em></p>
+  <p><em>One API for CSV, Parquet, Snowflake, Databricks, BigQuery, and 15+ sources. No boilerplate.</em></p>
 
   [![PyPI version](https://img.shields.io/pypi/v/duckguard.svg)](https://pypi.org/project/duckguard/)
   [![Downloads](https://static.pepy.tech/badge/duckguard)](https://pepy.tech/project/duckguard)
@@ -15,7 +15,7 @@
   [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://xdatahubai.github.io/duckguard/)
 
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/XDataHubAI/duckguard/blob/main/examples/getting_started.ipynb)
-  [![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://github.com/XDataHubAI/duckguard/blob/main/examples/getting_started.ipynb)
+  [![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://github.com/XDataHubAI/duckguard/blob/main/examples/kaggle_data_quality.ipynb)
 </div>
 
 ---
@@ -29,16 +29,47 @@ pip install duckguard
 ```python
 from duckguard import connect
 
-orders = connect("orders.csv")                               # CSV, Parquet, JSON, S3, databases...
+orders = connect("s3://warehouse/orders.parquet")            # Cloud, local, or warehouse
 assert orders.customer_id.is_not_null()                      # Just like pytest!
-assert orders.total_amount.between(0, 10000)                   # Readable validations
+assert orders.total_amount.between(0, 10000)                 # Readable validations
 assert orders.status.isin(["pending", "shipped", "delivered"])
 
 quality = orders.score()
 print(f"Grade: {quality.grade}")  # A, B, C, D, or F
 ```
 
-**That's it.** No context. No datasource. No validator. No expectation suite. Just data quality.
+**That's it.** Same 3 lines whether your data lives in S3, Snowflake, Databricks, or a local CSV. No context. No datasource. No validator. No expectation suite. Just data quality.
+
+### Works with Your Data Stack
+
+```python
+from duckguard import connect
+
+# Data Lakes
+orders = connect("s3://bucket/orders.parquet")               # AWS S3
+orders = connect("gs://bucket/orders.parquet")               # Google Cloud
+orders = connect("az://container/orders.parquet")            # Azure Blob
+
+# Data Warehouses
+orders = connect("snowflake://account/db", table="orders")   # Snowflake
+orders = connect("databricks://host/catalog", table="orders") # Databricks
+orders = connect("bigquery://project", table="orders")       # BigQuery
+orders = connect("redshift://cluster/db", table="orders")    # Redshift
+
+# Modern Table Formats
+orders = connect("delta://path/to/delta_table")              # Delta Lake
+orders = connect("iceberg://path/to/iceberg_table")          # Apache Iceberg
+
+# Databases
+orders = connect("postgres://localhost/db", table="orders")  # PostgreSQL
+orders = connect("mysql://localhost/db", table="orders")     # MySQL
+
+# Files & DataFrames
+orders = connect("orders.parquet")                           # Parquet, CSV, JSON, Excel
+orders = connect(pandas_dataframe)                           # pandas DataFrame
+```
+
+> **15+ connectors.** Install what you need: `pip install duckguard[snowflake]`, `duckguard[databricks]`, or `duckguard[all]`
 
 ---
 
@@ -93,7 +124,10 @@ validator.expect_column_values_to_be_between(
 ```python
 from duckguard import connect
 
-orders = connect("orders.csv")
+orders = connect(
+    "snowflake://account/db",
+    table="orders"
+)
 
 assert orders.customer_id.is_not_null()
 assert orders.total_amount.between(0, 10000)
@@ -246,40 +280,6 @@ pip install duckguard[all]         # Everything
 </table>
 
 ---
-
-## Connect to Anything
-
-```python
-from duckguard import connect
-
-# Files
-orders = connect("orders.csv")
-orders = connect("orders.parquet")
-orders = connect("orders.json")
-
-# Cloud Storage
-orders = connect("s3://bucket/orders.parquet")
-orders = connect("gs://bucket/orders.parquet")
-orders = connect("az://container/orders.parquet")
-
-# Databases
-orders = connect("postgres://localhost/db", table="orders")
-orders = connect("mysql://localhost/db", table="orders")
-orders = connect("snowflake://account/db", table="orders")
-orders = connect("bigquery://project/dataset", table="orders")
-orders = connect("databricks://workspace/catalog/schema", table="orders")
-orders = connect("redshift://cluster/db", table="orders")
-
-# Modern Formats
-orders = connect("delta://path/to/delta_table")
-orders = connect("iceberg://path/to/iceberg_table")
-
-# pandas DataFrame
-import pandas as pd
-orders = connect(pd.read_csv("orders.csv"))
-```
-
-**Supported:** CSV, Parquet, JSON, Excel | S3, GCS, Azure Blob | PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, Redshift, Databricks, SQL Server, Oracle, MongoDB | Delta Lake, Apache Iceberg | pandas DataFrames
 
 ---
 

@@ -101,6 +101,10 @@ nav:
     - Cloud Storage: connectors/cloud-storage.md
     - Databases: connectors/databases.md
     - Modern Formats: connectors/modern-formats.md
+  - Platforms:
+    - Snowflake: platforms/snowflake.md
+    - Databricks: platforms/databricks.md
+    - Kaggle & Colab: platforms/kaggle.md
   - Integrations:
     - pytest: integrations/pytest.md
     - dbt: integrations/dbt.md
