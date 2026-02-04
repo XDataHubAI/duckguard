@@ -29,7 +29,7 @@ Examples:
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from duckguard.connectors.base import ConnectionConfig, Connector
 from duckguard.core.dataset import Dataset
@@ -89,7 +89,7 @@ class FabricConnector(Connector):
         # Set auth token if provided
         if token:
             try:
-                self.engine.execute(f"SET azure_transport_option_type = 'curl'")
+                self.engine.execute("SET azure_transport_option_type = 'curl'")
                 self.engine.execute(f"SET azure_access_token = '{token}'")
             except Exception:
                 pass
