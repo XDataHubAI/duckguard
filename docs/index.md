@@ -65,7 +65,7 @@ Every data quality tool asks you to write **50+ lines of boilerplate** before yo
 
     CSV, Parquet, S3, PostgreSQL, Snowflake, BigQuery, and more
 
-- :material-snowflake: **[Snowflake](platforms/snowflake.md)** · :material-fire: **[Databricks](platforms/databricks.md)** · :material-notebook: **[Kaggle](platforms/kaggle.md)**
+- :material-snowflake: **[Snowflake](platforms/snowflake.md)** · :material-fire: **[Databricks](platforms/databricks.md)** · :material-microsoft: **[Fabric](platforms/fabric.md)** · :material-notebook: **[Kaggle](platforms/kaggle.md)**
 
     Platform-specific guides for your data stack
 
