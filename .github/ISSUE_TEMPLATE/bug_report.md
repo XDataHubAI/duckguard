@@ -6,36 +6,28 @@ labels: bug
 assignees: ''
 ---
 
-## Describe the Bug
-A clear and concise description of what the bug is.
+## Describe the bug
+A clear description of what the bug is.
 
 ## To Reproduce
-Steps to reproduce the behavior:
-1. Connect to '...'
-2. Run '...'
-3. See error
-
-## Expected Behavior
-A clear description of what you expected to happen.
-
-## Code Example
 ```python
 from duckguard import connect
 
-# Minimal reproducible example
-data = connect("...")
+ds = connect("your_file.csv")
+# Steps to reproduce...
 ```
 
-## Error Message
-```
-Paste the full error message here
-```
+## Expected behavior
+What you expected to happen.
+
+## Actual behavior
+What actually happened. Include any error messages or tracebacks.
 
 ## Environment
-- DuckGuard version: [e.g., 2.0.0]
-- Python version: [e.g., 3.10]
-- OS: [e.g., Ubuntu 22.04, Windows 11, macOS 14]
-- Installation method: [pip, conda, source]
+- DuckGuard version: (run `duckguard --version`)
+- Python version:
+- OS:
+- Data source type: (CSV, Parquet, PostgreSQL, etc.)
 
-## Additional Context
-Add any other context about the problem here.
+## Additional context
+Any other context about the problem.
