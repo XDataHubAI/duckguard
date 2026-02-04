@@ -161,6 +161,36 @@ class Dataset:
         """
         return name in self.columns
 
+    def prefetch_stats(self, numeric_columns: list[str] | None = None) -> None:
+        """
+        Pre-fetch statistics for ALL columns in 1-2 SQL queries.
+
+        This is dramatically faster than fetching stats per column,
+        as it does one table scan instead of N. Call this before
+        scoring or profiling to warm all caches.
+
+        Args:
+            numeric_columns: List of numeric column names for extended stats.
+                           If None, skips numeric stats.
+        """
+        cols = self.columns
+
+        # Batch 1: basic stats for all columns (1 query)
+        all_stats = self._engine.get_all_column_stats(self._source, cols)
+        for col_name, stats in all_stats.items():
+            col_obj = Column(col_name, self)
+            col_obj._stats_cache = stats
+            # Store on dataset so __getattr__ columns pick it up
+            cache_key = f"_col_stats_cache_{col_name}"
+            object.__setattr__(self, cache_key, stats)
+
+        # Batch 2: numeric stats (1 query)
+        if numeric_columns:
+            all_numeric = self._engine.get_all_numeric_stats(self._source, numeric_columns)
+            for col_name, nstats in all_numeric.items():
+                cache_key = f"_col_numeric_cache_{col_name}"
+                object.__setattr__(self, cache_key, nstats)
+
     def sample(self, n: int = 10) -> list[dict[str, Any]]:
         """
         Get a sample of rows from the dataset.

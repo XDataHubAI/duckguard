@@ -208,6 +208,176 @@ class DuckGuardEngine:
             "max_value": row[5],
         }
 
+    def get_all_column_stats(self, source: str, columns: list[str]) -> dict[str, dict[str, Any]]:
+        """
+        Get basic statistics for ALL columns in a single query.
+
+        This is dramatically faster than calling get_column_stats per column
+        because it does one table scan instead of N.
+
+        Args:
+            source: Source reference
+            columns: List of column names
+
+        Returns:
+            Dictionary mapping column name -> stats dict
+        """
+        if not columns:
+            return {}
+
+        ref = self.get_source_reference(source)
+
+        # Build a single query that computes stats for all columns
+        select_parts = ["COUNT(*) AS _total_count"]
+        for col_name in columns:
+            col = f'"{col_name}"'
+            safe = col_name.replace('"', '').replace("'", "")
+            select_parts.extend([
+                f'COUNT({col}) AS "{safe}__non_null"',
+                f'COUNT(DISTINCT {col}) AS "{safe}__unique"',
+                f'MIN({col}) AS "{safe}__min"',
+                f'MAX({col}) AS "{safe}__max"',
+            ])
+
+        sql = f"SELECT {', '.join(select_parts)} FROM {ref}"
+        row = self.fetch_one(sql)
+        if not row:
+            return {}
+
+        total = row[0] or 0
+        result = {}
+        idx = 1
+        for col_name in columns:
+            non_null = row[idx] or 0
+            null_count = total - non_null
+            unique_count = row[idx + 1] or 0
+            min_val = row[idx + 2]
+            max_val = row[idx + 3]
+
+            result[col_name] = {
+                "total_count": total,
+                "non_null_count": non_null,
+                "null_count": null_count,
+                "null_percent": (null_count / total * 100) if total > 0 else 0.0,
+                "unique_count": unique_count,
+                "unique_percent": (unique_count / total * 100) if total > 0 else 0.0,
+                "min_value": min_val,
+                "max_value": max_val,
+            }
+            idx += 4
+
+        return result
+
+    def get_all_numeric_stats(self, source: str, columns: list[str]) -> dict[str, dict[str, Any]]:
+        """
+        Get numeric statistics for multiple columns in a single query.
+
+        Args:
+            source: Source reference
+            columns: List of numeric column names
+
+        Returns:
+            Dictionary mapping column name -> numeric stats dict
+        """
+        if not columns:
+            return {}
+
+        ref = self.get_source_reference(source)
+
+        select_parts = []
+        valid_cols = []
+        for col_name in columns:
+            col = f'"{col_name}"'
+            safe = col_name.replace('"', '').replace("'", "")
+            select_parts.extend([
+                f'AVG({col}::DOUBLE) AS "{safe}__mean"',
+                f'STDDEV({col}::DOUBLE) AS "{safe}__stddev"',
+                f'MEDIAN({col}::DOUBLE) AS "{safe}__median"',
+                f'PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {col}::DOUBLE) AS "{safe}__p25"',
+                f'PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {col}::DOUBLE) AS "{safe}__p75"',
+            ])
+            valid_cols.append(col_name)
+
+        if not select_parts:
+            return {}
+
+        # Build WHERE clause to exclude rows where all columns are NULL
+        sql = f"SELECT {', '.join(select_parts)} FROM {ref}"
+
+        try:
+            row = self.fetch_one(sql)
+            if not row:
+                return {}
+        except duckdb.Error:
+            return {}
+
+        result = {}
+        idx = 0
+        for col_name in valid_cols:
+            result[col_name] = {
+                "mean": row[idx],
+                "stddev": row[idx + 1],
+                "median": row[idx + 2],
+                "p25": row[idx + 3],
+                "p75": row[idx + 4],
+            }
+            idx += 5
+
+        return result
+
+    def get_sample_distinct_values(
+        self, source: str, columns: list[str], sample_size: int = 1000, limit_per_col: int = 100
+    ) -> dict[str, list[Any]]:
+        """
+        Get distinct non-null values for multiple columns using a single SAMPLE query.
+
+        Much faster than running SELECT DISTINCT per column.
+
+        Args:
+            source: Source reference
+            columns: Column names
+            sample_size: Number of rows to sample
+            limit_per_col: Max distinct values per column
+
+        Returns:
+            Dictionary mapping column name -> list of distinct values
+        """
+        ref = self.get_source_reference(source)
+
+        try:
+            sql = f"SELECT * FROM {ref} USING SAMPLE {sample_size} ROWS"
+            rows = self.fetch_all(sql)
+        except duckdb.Error:
+            # SAMPLE not supported for this source, fall back
+            return {}
+
+        if not rows:
+            return {}
+
+        # Get column names to map positions
+        all_cols = self.get_columns(source)
+        col_indices = {col: i for i, col in enumerate(all_cols)}
+
+        result = {}
+        for col_name in columns:
+            idx = col_indices.get(col_name)
+            if idx is None:
+                result[col_name] = []
+                continue
+
+            seen = set()
+            values = []
+            for row in rows:
+                val = row[idx]
+                if val is not None and val not in seen:
+                    seen.add(val)
+                    values.append(val)
+                    if len(values) >= limit_per_col:
+                        break
+            result[col_name] = values
+
+        return result
+
     def get_numeric_stats(self, source: str, column: str) -> dict[str, Any]:
         """
         Get numeric statistics for a column.

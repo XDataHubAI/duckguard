@@ -86,7 +86,43 @@ class AutoProfiler:
         column_profiles = []
         all_suggestions: list[str] = []
 
-        for col_name in dataset.columns:
+        # Pre-fetch all column stats in 1-2 queries (huge perf win)
+        columns = dataset.columns
+        try:
+            all_stats = dataset.engine.get_all_column_stats(dataset.source, columns)
+            for col_name, stats in all_stats.items():
+                cache_key = f"_col_stats_cache_{col_name}"
+                object.__setattr__(dataset, cache_key, stats)
+
+            # Determine numeric columns and batch their stats
+            ref = dataset.engine.get_source_reference(dataset.source)
+            type_rows = dataset.engine.fetch_all(f"DESCRIBE SELECT * FROM {ref}")
+            numeric_types = {"BIGINT", "INTEGER", "DOUBLE", "FLOAT", "DECIMAL",
+                           "HUGEINT", "SMALLINT", "TINYINT", "REAL", "NUMERIC",
+                           "INT", "INT4", "INT8", "INT2", "FLOAT4", "FLOAT8"}
+            numeric_cols = [
+                row[0] for row in type_rows
+                if any(nt in str(row[1]).upper() for nt in numeric_types)
+            ]
+            if numeric_cols:
+                all_numeric = dataset.engine.get_all_numeric_stats(dataset.source, numeric_cols)
+                for col_name, nstats in all_numeric.items():
+                    cache_key = f"_col_numeric_cache_{col_name}"
+                    object.__setattr__(dataset, cache_key, nstats)
+
+            # Batch 3: sample distinct values for all columns (1 query)
+            sample_values = dataset.engine.get_sample_distinct_values(
+                dataset.source, columns,
+                sample_size=max(1000, self.pattern_sample_size),
+                limit_per_col=self.pattern_sample_size,
+            )
+            for col_name, values in sample_values.items():
+                cache_key = f"_col_distinct_cache_{col_name}"
+                object.__setattr__(dataset, cache_key, values)
+        except Exception:
+            pass  # Fall back to per-column queries
+
+        for col_name in columns:
             col = dataset[col_name]
             col_profile = self._profile_column(col)
             column_profiles.append(col_profile)
@@ -116,8 +152,13 @@ class AutoProfiler:
         stats = col._get_stats()
         numeric_stats = col._get_numeric_stats()
 
-        # Get sample values for pattern detection
-        sample_values = col.get_distinct_values(limit=self.pattern_sample_size)
+        # Get sample values for pattern detection (use prefetched cache if available)
+        cache_key = f"_col_distinct_cache_{col.name}"
+        cached = getattr(col.dataset, cache_key, None)
+        if cached is not None:
+            sample_values = cached
+        else:
+            sample_values = col.get_distinct_values(limit=self.pattern_sample_size)
 
         # Generate suggestions
         suggestions = self._generate_suggestions(col, stats, numeric_stats, sample_values)

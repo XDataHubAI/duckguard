@@ -60,17 +60,29 @@ class Column:
     def _get_stats(self) -> dict[str, Any]:
         """Get cached or fetch column statistics."""
         if self._stats_cache is None:
-            self._stats_cache = self._dataset.engine.get_column_stats(
-                self._dataset.source, self._name
-            )
+            # Check if dataset has prefetched stats
+            cache_key = f"_col_stats_cache_{self._name}"
+            prefetched = getattr(self._dataset, cache_key, None)
+            if prefetched is not None:
+                self._stats_cache = prefetched
+            else:
+                self._stats_cache = self._dataset.engine.get_column_stats(
+                    self._dataset.source, self._name
+                )
         return self._stats_cache
 
     def _get_numeric_stats(self) -> dict[str, Any]:
         """Get cached or fetch numeric statistics."""
         if self._numeric_stats_cache is None:
-            self._numeric_stats_cache = self._dataset.engine.get_numeric_stats(
-                self._dataset.source, self._name
-            )
+            # Check if dataset has prefetched numeric stats
+            cache_key = f"_col_numeric_cache_{self._name}"
+            prefetched = getattr(self._dataset, cache_key, None)
+            if prefetched is not None:
+                self._numeric_stats_cache = prefetched
+            else:
+                self._numeric_stats_cache = self._dataset.engine.get_numeric_stats(
+                    self._dataset.source, self._name
+                )
         return self._numeric_stats_cache
 
     # =========================================================================

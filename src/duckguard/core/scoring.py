@@ -194,8 +194,12 @@ class QualityScorer:
         column_scores: dict[str, ColumnScore] = {}
         all_checks: list[CheckScore] = []
 
+        # Pre-fetch all column stats in 1-2 queries instead of N queries
+        columns = dataset.columns
+        self._prefetch_all_stats(dataset, columns)
+
         # Score each column
-        for col_name in dataset.columns:
+        for col_name in columns:
             col = dataset[col_name]
             col_checks = self._score_column(col)
             all_checks.extend(col_checks)
@@ -242,6 +246,44 @@ class QualityScorer:
             passed_checks=passed_checks,
             failed_checks=failed_checks,
         )
+
+    def _prefetch_all_stats(self, dataset: Dataset, columns: list[str]) -> None:
+        """Pre-fetch all column stats in batched queries for performance."""
+        try:
+            # Batch 1: basic stats for all columns (1 SQL query)
+            all_stats = dataset.engine.get_all_column_stats(dataset.source, columns)
+            for col_name, stats in all_stats.items():
+                cache_key = f"_col_stats_cache_{col_name}"
+                object.__setattr__(dataset, cache_key, stats)
+
+            # Determine which columns are numeric by checking DuckDB types
+            ref = dataset.engine.get_source_reference(dataset.source)
+            type_rows = dataset.engine.fetch_all(f"DESCRIBE SELECT * FROM {ref}")
+            numeric_types = {"BIGINT", "INTEGER", "DOUBLE", "FLOAT", "DECIMAL",
+                           "HUGEINT", "SMALLINT", "TINYINT", "REAL", "NUMERIC",
+                           "INT", "INT4", "INT8", "INT2", "FLOAT4", "FLOAT8"}
+            numeric_cols = [
+                row[0] for row in type_rows
+                if any(nt in str(row[1]).upper() for nt in numeric_types)
+            ]
+
+            # Batch 2: numeric stats for numeric columns (1 SQL query)
+            if numeric_cols:
+                all_numeric = dataset.engine.get_all_numeric_stats(dataset.source, numeric_cols)
+                for col_name, nstats in all_numeric.items():
+                    cache_key = f"_col_numeric_cache_{col_name}"
+                    object.__setattr__(dataset, cache_key, nstats)
+
+            # Batch 3: sample distinct values for pattern detection (1 SQL query)
+            sample_values = dataset.engine.get_sample_distinct_values(
+                dataset.source, columns, sample_size=1000, limit_per_col=100
+            )
+            for col_name, values in sample_values.items():
+                cache_key = f"_col_distinct_cache_{col_name}"
+                object.__setattr__(dataset, cache_key, values)
+        except Exception:
+            # If batching fails for any reason, fall back to per-column queries
+            pass
 
     def _score_column(self, col) -> list[CheckScore]:
         """Score a single column across all dimensions."""
@@ -320,8 +362,13 @@ class QualityScorer:
                     severity="high" if not is_positive else "low",
                 ))
 
-        # Check for common patterns in string columns
-        sample_values = col.get_distinct_values(limit=100)
+        # Check for common patterns in string columns (use prefetched cache if available)
+        cache_key = f"_col_distinct_cache_{col_name}"
+        cached = getattr(col.dataset, cache_key, None)
+        if cached is not None:
+            sample_values = cached
+        else:
+            sample_values = col.get_distinct_values(limit=100)
         string_values = [v for v in sample_values if isinstance(v, str)]
 
         if string_values and len(string_values) >= 10:
