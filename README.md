@@ -45,7 +45,7 @@ print(f"Grade: {quality.grade}")  # A, B, C, D, or F
 ## Demo
 
 <div align="center">
-  <img src="docs/assets/demo.gif" alt="DuckGuard Demo" width="750">
+  <img src="docs/assets/demo.svg" alt="DuckGuard Demo" width="750">
 </div>
 
 ---
@@ -416,6 +416,48 @@ result = grouped.row_count_greater_than(10)
 for g in result.get_failed_groups():
     print(f"{g.key_string}: only {g.row_count} rows")
 ```
+
+---
+
+## 🆕 What's New in 3.2
+
+DuckGuard 3.2 adds **AI-powered data quality** — the first data quality library with native LLM integration.
+
+### AI Features (NEW)
+
+```bash
+# Explain quality issues in plain English
+duckguard explain orders.csv
+
+# AI suggests validation rules based on your data
+duckguard suggest orders.csv
+
+# Get AI-powered fix suggestions for quality issues
+duckguard fix orders.csv
+```
+
+```python
+from duckguard.ai import explainer, rules_generator, fixer
+
+# Natural language quality explanation
+summary = explainer.explain(dataset)
+
+# AI-generated validation rules
+rules = rules_generator.suggest_rules(dataset)
+
+# Suggest fixes for data quality issues
+fixes = fixer.suggest_fixes(dataset, results)
+```
+
+Supports **OpenAI**, **Anthropic**, and **Ollama** (local models). Configure via environment variables or `AIConfig`.
+
+### Also in 3.2
+
+- 🔍 **Improved semantic type detection** — smarter column classification, fewer false positives
+- 📄 **Apache 2.0 license** — OSI-approved, enterprise-friendly
+- 🛡️ **SQL injection prevention** — multi-layer escaping in all string-based checks
+- 📖 **Full documentation site** — [xdatahubai.github.io/duckguard](https://xdatahubai.github.io/duckguard/)
+- 🔒 **PEP 561 typed** — `py.typed` marker for mypy/pyright
 
 ---
 

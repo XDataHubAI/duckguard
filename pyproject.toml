@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "duckguard"
-version = "3.1.0"
+version = "3.2.0"
 description = "A Python-native data quality tool with AI superpowers, built on DuckDB for speed"
 readme = "README.md"
 license = "Apache-2.0"
@@ -41,7 +41,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Information Technology",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -125,7 +125,7 @@ duckguard = "duckguard.pytest_plugin.plugin"
 
 [project.urls]
 Homepage = "https://github.com/XDataHubAI/duckguard"
-Documentation = "https://github.com/XDataHubAI/duckguard"
+Documentation = "https://xdatahubai.github.io/duckguard/"
 Repository = "https://github.com/XDataHubAI/duckguard"
 
 [tool.hatch.build.targets.wheel]

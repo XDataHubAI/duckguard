@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.0] — 2026-02-03
+
+AI-powered data quality, improved semantic detection, and Apache 2.0 license.
+
+### Added
+
+- **AI Module** (`duckguard.ai`) — Native LLM integration for data quality:
+  - `explainer.explain()` — Natural language quality summaries
+  - `rules_generator.suggest_rules()` — AI-powered validation rule generation
+  - `fixer.suggest_fixes()` — AI-suggested data quality fixes
+  - `natural_language.natural_rules()` — Plain English validation rules
+  - Multi-provider support: OpenAI, Anthropic, Ollama (local)
+- **AI CLI Commands** — `duckguard explain`, `duckguard suggest`, `duckguard fix`
+- **Documentation Site** — 34-page MkDocs Material site at [xdatahubai.github.io/duckguard](https://xdatahubai.github.io/duckguard/)
+- **NOTICE file** — Apache 2.0 attribution
+- **GitHub Templates** — Bug report, feature request, and PR templates
+- **SECURITY.md** — Vulnerability reporting policy
+- **Dependabot** — Automated dependency updates
+- **PEP 561** — `py.typed` marker for static type checkers
+
+### Fixed
+
+- **Semantic type detection** — Name patterns now take priority over ambiguous value patterns; latitude/longitude require 4+ decimal places; added currency patterns for tax, shipping, unit_price
+- **SQL injection prevention** — Added `_escape_sql_string()` to `column.py` (matches, isin, _get_failed_rows) and `conditional.py` (isin_when, matches_when)
+
+### Changed
+
+- **License** — Switched from Elastic License 2.0 to **Apache License 2.0** (OSI-approved)
+- **Classifier** — Updated PyPI classifier to `License :: OSI Approved :: Apache Software License`
+
+---
+
 ## [3.1.0] — 2026-01-30
 
 Enhanced profiler: wired 4 existing helper modules into AutoProfiler, added `duckguard profile` CLI command, and made profiling thresholds configurable.
