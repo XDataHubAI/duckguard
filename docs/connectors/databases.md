@@ -128,6 +128,28 @@ data = connect(
 )
 ```
 
+## Microsoft Fabric
+
+```bash
+pip install 'duckguard[fabric]'
+```
+
+```python
+# OneLake (Parquet/Delta in Lakehouse)
+data = connect(
+    "fabric://workspace/lakehouse/Tables/orders",
+    token="eyJ..."
+)
+
+# SQL endpoint
+data = connect(
+    "fabric+sql://workspace-guid.datawarehouse.fabric.microsoft.com",
+    table="orders",
+    database="my_lakehouse",
+    token="eyJ..."
+)
+```
+
 ## Oracle
 
 ```bash

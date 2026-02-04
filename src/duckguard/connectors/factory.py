@@ -139,6 +139,9 @@ def _is_database_connection(source: str) -> bool:
         "mongodb://",
         "mongodb+srv://",
         "kafka://",
+        "fabric://",
+        "fabric+sql://",
+        "onelake://",
     )
     source_lower = source.lower()
 
@@ -156,6 +159,12 @@ def _is_database_connection(source: str) -> bool:
 
     # Check for Databricks hostname
     if ".databricks.com" in source_lower:
+        return True
+
+    # Check for Fabric hostname
+    if ".datawarehouse.fabric.microsoft.com" in source_lower:
+        return True
+    if "onelake.dfs.fabric.microsoft.com" in source_lower:
         return True
 
     return False
@@ -306,12 +315,23 @@ def _handle_database_connection(
                 "Install with: pip install duckguard[kafka]"
             )
 
+    # Microsoft Fabric
+    if (
+        source_lower.startswith(("fabric://", "fabric+sql://", "onelake://"))
+        or ".datawarehouse.fabric.microsoft.com" in source_lower
+        or "onelake.dfs.fabric.microsoft.com" in source_lower
+    ):
+        from duckguard.connectors.fabric import FabricConnector
+
+        connector = FabricConnector(engine=engine)
+        return connector.connect(config)
+
     # For other databases, raise helpful error
     raise ValueError(
         f"Database connector not yet implemented for: {source}\n"
         f"Currently supported: postgres://, mysql://, sqlite://, snowflake://, "
         f"bigquery://, redshift://, mssql://, databricks://, oracle://, "
-        f"mongodb://, kafka://"
+        f"mongodb://, kafka://, fabric://, onelake://"
     )
 
 

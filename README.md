@@ -56,6 +56,7 @@ orders = connect("snowflake://account/db", table="orders")   # Snowflake
 orders = connect("databricks://host/catalog", table="orders") # Databricks
 orders = connect("bigquery://project", table="orders")       # BigQuery
 orders = connect("redshift://cluster/db", table="orders")    # Redshift
+orders = connect("fabric://workspace/lakehouse/Tables/orders") # Microsoft Fabric
 
 # Modern Table Formats
 orders = connect("delta://path/to/delta_table")              # Delta Lake

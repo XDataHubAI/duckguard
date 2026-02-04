@@ -78,6 +78,7 @@ databricks = ["databricks-sql-connector>=2.0.0"]
 oracle = ["oracledb>=1.0.0"]
 mongodb = ["pymongo>=4.0.0"]
 kafka = ["kafka-python>=2.0.0"]
+fabric = ["pyodbc>=4.0.0"]
 # Note: SQLite is built into DuckDB, no extra dependency needed
 
 # AI/LLM features
@@ -97,7 +98,7 @@ airflow = ["apache-airflow>=2.5.0"]
 
 # All database connectors
 databases = [
-    "duckguard[postgres,mysql,snowflake,bigquery,redshift,sqlserver,databricks,oracle,mongodb,kafka]"
+    "duckguard[postgres,mysql,snowflake,bigquery,redshift,sqlserver,databricks,oracle,mongodb,kafka,fabric]"
 ]
 
 # Development dependencies
