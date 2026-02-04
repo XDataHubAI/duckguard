@@ -178,7 +178,9 @@ NAME_PATTERNS: dict[SemanticType, list[str]] = {
     SemanticType.CURRENCY: [
         r"amount", r"price", r"cost", r"total", r"subtotal",
         r"revenue", r"salary", r"fee", r"charge", r"balance",
-        r"payment", r".*_amt$", r".*_amount$"
+        r"payment", r"tax", r"shipping", r"discount", r"tip",
+        r".*_amt$", r".*_amount$", r".*_price$", r".*_cost$",
+        r"unit_price", r"list_price", r"net_.*", r"gross_.*"
     ],
     SemanticType.PERCENTAGE: [
         r"percent(age)?", r"rate", r"ratio", r"pct", r".*_pct$"
@@ -237,8 +239,8 @@ VALUE_PATTERNS: dict[SemanticType, str] = {
     SemanticType.TIME: r"^\d{2}:\d{2}(:\d{2})?$",
     SemanticType.COUNTRY_CODE: r"^[A-Z]{2,3}$",
     SemanticType.SLUG: r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
-    SemanticType.LATITUDE: r"^-?([1-8]?\d(\.\d+)?|90(\.0+)?)$",
-    SemanticType.LONGITUDE: r"^-?(1[0-7]\d(\.\d+)?|180(\.0+)?|\d{1,2}(\.\d+)?)$",
+    SemanticType.LATITUDE: r"^-?([1-8]?\d\.\d{4,}|90(\.0+)?)$",
+    SemanticType.LONGITUDE: r"^-?(1[0-7]\d\.\d{4,}|180(\.0+)?|\d{1,2}\.\d{4,})$",
     # Identifier pattern: PREFIX-NUMBER, ABC123, etc. (uppercase or mixed case with numbers)
     SemanticType.IDENTIFIER: r"^[A-Z][A-Z0-9]*[-_]?\d+$|^[A-Z]{2,}[-_][A-Z0-9]+$",
 }
@@ -386,12 +388,14 @@ class SemanticTypeDetector:
         reasons = []
         candidates: dict[SemanticType, float] = {}
 
-        # 1. Check column name patterns
+        # 1. Check column name patterns (name is strongest signal)
         name_lower = column_name.lower().replace("-", "_")
+        name_matched_types: set[SemanticType] = set()
         for sem_type, patterns in self.name_patterns.items():
             for pattern in patterns:
                 if re.match(pattern, name_lower, re.IGNORECASE):
-                    candidates[sem_type] = candidates.get(sem_type, 0) + 0.4
+                    candidates[sem_type] = candidates.get(sem_type, 0) + 0.6
+                    name_matched_types.add(sem_type)
                     reasons.append(f"Column name matches '{sem_type.value}' pattern")
                     break
 
@@ -408,13 +412,20 @@ class SemanticTypeDetector:
                     )
                     match_rate = match_count / min(len(string_values), 50)
 
+                    # Reduce score for ambiguous numeric types (lat/lon)
+                    # when no name hint supports them
+                    ambiguous_types = {SemanticType.LATITUDE, SemanticType.LONGITUDE, SemanticType.SLUG}
+                    penalty = 0.0
+                    if sem_type in ambiguous_types and sem_type not in name_matched_types:
+                        penalty = 0.2
+
                     if match_rate >= 0.8:
-                        candidates[sem_type] = candidates.get(sem_type, 0) + 0.5
+                        candidates[sem_type] = candidates.get(sem_type, 0) + 0.5 - penalty
                         reasons.append(
                             f"{match_rate:.0%} of values match {sem_type.value} pattern"
                         )
                     elif match_rate >= 0.5:
-                        candidates[sem_type] = candidates.get(sem_type, 0) + 0.3
+                        candidates[sem_type] = candidates.get(sem_type, 0) + 0.3 - penalty
                         reasons.append(
                             f"{match_rate:.0%} of values match {sem_type.value} pattern"
                         )
